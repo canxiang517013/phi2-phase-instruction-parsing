@@ -20,3 +20,7 @@ __pycache__/
 *.pyc
 .zcode/
 .vscode/
+
+# phase-aware 复现产物：checkpoint 与 tensorboard 不入库（磁盘保留，可由脚本重训）
+*.pth
+tensorboard/

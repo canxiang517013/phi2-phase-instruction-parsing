@@ -1,0 +1,47 @@
+[
+  {
+    "episode": 60,
+    "phase": "early",
+    "n_parameter_updates": 1
+  },
+  {
+    "episode": 150,
+    "phase": "early",
+    "n_parameter_updates": 2
+  },
+  {
+    "episode": 210,
+    "phase": "early",
+    "n_parameter_updates": 1
+  },
+  {
+    "episode": 300,
+    "phase": "early",
+    "n_parameter_updates": 2
+  },
+  {
+    "episode": 360,
+    "phase": "early",
+    "n_parameter_updates": 1
+  },
+  {
+    "episode": 444,
+    "phase": "mid",
+    "n_parameter_updates": 2
+  },
+  {
+    "episode": 494,
+    "phase": "mid",
+    "n_parameter_updates": 2
+  },
+  {
+    "episode": 557,
+    "phase": "mid",
+    "n_parameter_updates": 2
+  },
+  {
+    "episode": 610,
+    "phase": "mid",
+    "n_parameter_updates": 1
+  }
+]

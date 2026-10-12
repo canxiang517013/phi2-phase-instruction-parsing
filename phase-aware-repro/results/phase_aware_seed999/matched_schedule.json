@@ -1,0 +1,97 @@
+[
+  {
+    "episode": 30,
+    "phase": "early",
+    "n_parameter_updates": 1
+  },
+  {
+    "episode": 240,
+    "phase": "early",
+    "n_parameter_updates": 2
+  },
+  {
+    "episode": 330,
+    "phase": "early",
+    "n_parameter_updates": 1
+  },
+  {
+    "episode": 450,
+    "phase": "early",
+    "n_parameter_updates": 1
+  },
+  {
+    "episode": 480,
+    "phase": "early",
+    "n_parameter_updates": 1
+  },
+  {
+    "episode": 540,
+    "phase": "early",
+    "n_parameter_updates": 1
+  },
+  {
+    "episode": 570,
+    "phase": "early",
+    "n_parameter_updates": 1
+  },
+  {
+    "episode": 600,
+    "phase": "early",
+    "n_parameter_updates": 1
+  },
+  {
+    "episode": 660,
+    "phase": "early",
+    "n_parameter_updates": 1
+  },
+  {
+    "episode": 690,
+    "phase": "early",
+    "n_parameter_updates": 1
+  },
+  {
+    "episode": 720,
+    "phase": "early",
+    "n_parameter_updates": 1
+  },
+  {
+    "episode": 810,
+    "phase": "early",
+    "n_parameter_updates": 1
+  },
+  {
+    "episode": 870,
+    "phase": "early",
+    "n_parameter_updates": 1
+  },
+  {
+    "episode": 930,
+    "phase": "early",
+    "n_parameter_updates": 2
+  },
+  {
+    "episode": 990,
+    "phase": "early",
+    "n_parameter_updates": 1
+  },
+  {
+    "episode": 1101,
+    "phase": "mid",
+    "n_parameter_updates": 1
+  },
+  {
+    "episode": 1151,
+    "phase": "mid",
+    "n_parameter_updates": 2
+  },
+  {
+    "episode": 1202,
+    "phase": "mid",
+    "n_parameter_updates": 2
+  },
+  {
+    "episode": 1260,
+    "phase": "mid",
+    "n_parameter_updates": 2
+  }
+]
