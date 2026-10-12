@@ -1,0 +1,10 @@
+{
+ "label": "smoke-v2",
+ "model": "phi2-v5-q6_k.gguf",
+ "testset": "robust",
+ "n": 20,
+ "vram_mb": 4199,
+ "wall_s": 9.7,
+ "note": "smoke",
+ "ts": "2026-10-12 11:35:08"
+}

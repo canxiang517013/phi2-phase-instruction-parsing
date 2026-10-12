@@ -1,0 +1,175 @@
+
+===== v5-FP16 · basic =====
+D:\2026-2027\Phi-2 QLoRA\evaluation\eval_run.py:153: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml
+[v5-FP16] 加载 D:\2026-2027\Phi-2 QLoRA\phi2-fp16.gguf ...
+  20/60 acc=1.000
+  40/60 acc=1.000
+  60/60 acc=1.000
+[v5-FP16] 完成: D:\2026-2027\Phi-2 QLoRA\evaluation\results\v5-FP16_basic_results.jsonl
+        汇总: D:\2026-2027\Phi-2 QLoRA\evaluation\results\v5-FP16_basic_summary.md
+
+===== v5-Q8_0 · basic =====
+D:\2026-2027\Phi-2 QLoRA\evaluation\eval_run.py:153: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml
+[v5-Q8_0] 加载 D:\2026-2027\Phi-2 QLoRA\phi2-v5-q8_0.gguf ...
+  20/240 acc=1.000
+  40/240 acc=1.000
+  60/240 acc=1.000
+  80/240 acc=1.000
+  100/240 acc=1.000
+  120/240 acc=1.000
+  140/240 acc=1.000
+  160/240 acc=1.000
+  180/240 acc=1.000
+  200/240 acc=1.000
+  220/240 acc=1.000
+  240/240 acc=1.000
+[v5-Q8_0] 完成: D:\2026-2027\Phi-2 QLoRA\evaluation\results\v5-Q8_0_basic_results.jsonl
+        汇总: D:\2026-2027\Phi-2 QLoRA\evaluation\results\v5-Q8_0_basic_summary.md
+
+===== v5-Q8_0 · phase =====
+D:\2026-2027\Phi-2 QLoRA\evaluation\eval_run.py:153: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml
+[v5-Q8_0] 加载 D:\2026-2027\Phi-2 QLoRA\phi2-v5-q8_0.gguf ...
+  20/200 acc=0.800
+  40/200 acc=0.625
+  60/200 acc=0.600
+  80/200 acc=0.613
+  100/200 acc=0.640
+  120/200 acc=0.633
+  140/200 acc=0.614
+  160/200 acc=0.600
+  180/200 acc=0.583
+  200/200 acc=0.575
+[v5-Q8_0] 完成: D:\2026-2027\Phi-2 QLoRA\evaluation\results\v5-Q8_0_phase_results.jsonl
+        汇总: D:\2026-2027\Phi-2 QLoRA\evaluation\results\v5-Q8_0_phase_summary.md
+
+===== v5-Q6_K · basic =====
+D:\2026-2027\Phi-2 QLoRA\evaluation\eval_run.py:153: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml
+[v5-Q6_K] 加载 D:\2026-2027\Phi-2 QLoRA\phi2-v5-q6_k.gguf ...
+  20/240 acc=1.000
+  40/240 acc=1.000
+  60/240 acc=1.000
+  80/240 acc=1.000
+  100/240 acc=1.000
+  120/240 acc=1.000
+  140/240 acc=1.000
+  160/240 acc=1.000
+  180/240 acc=1.000
+  200/240 acc=1.000
+  220/240 acc=1.000
+  240/240 acc=1.000
+[v5-Q6_K] 完成: D:\2026-2027\Phi-2 QLoRA\evaluation\results\v5-Q6_K_basic_results.jsonl
+        汇总: D:\2026-2027\Phi-2 QLoRA\evaluation\results\v5-Q6_K_basic_summary.md
+
+===== v5-Q6_K · phase =====
+D:\2026-2027\Phi-2 QLoRA\evaluation\eval_run.py:153: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml
+[v5-Q6_K] 加载 D:\2026-2027\Phi-2 QLoRA\phi2-v5-q6_k.gguf ...
+  20/200 acc=0.750
+  40/200 acc=0.625
+  60/200 acc=0.583
+  80/200 acc=0.562
+  100/200 acc=0.570
+  120/200 acc=0.575
+  140/200 acc=0.564
+  160/200 acc=0.562
+  180/200 acc=0.556
+  200/200 acc=0.540
+[v5-Q6_K] 完成: D:\2026-2027\Phi-2 QLoRA\evaluation\results\v5-Q6_K_phase_results.jsonl
+        汇总: D:\2026-2027\Phi-2 QLoRA\evaluation\results\v5-Q6_K_phase_summary.md
+
+===== v5-Q5_K_M · basic =====
+D:\2026-2027\Phi-2 QLoRA\evaluation\eval_run.py:153: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml
+[v5-Q5_K_M] 加载 D:\2026-2027\Phi-2 QLoRA\phi2-phased-v5-q5_k_m.gguf ...
+  20/240 acc=1.000
+  40/240 acc=1.000
+  60/240 acc=1.000
+  80/240 acc=1.000
+  100/240 acc=0.990
+  120/240 acc=0.983
+  140/240 acc=0.986
+  160/240 acc=0.981
+  180/240 acc=0.978
+  200/240 acc=0.980
+  220/240 acc=0.982
+  240/240 acc=0.975
+[v5-Q5_K_M] 完成: D:\2026-2027\Phi-2 QLoRA\evaluation\results\v5-Q5_K_M_basic_results.jsonl
+        汇总: D:\2026-2027\Phi-2 QLoRA\evaluation\results\v5-Q5_K_M_basic_summary.md
+
+===== v5-Q5_K_M · phase =====
+D:\2026-2027\Phi-2 QLoRA\evaluation\eval_run.py:153: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml
+[v5-Q5_K_M] 加载 D:\2026-2027\Phi-2 QLoRA\phi2-phased-v5-q5_k_m.gguf ...
+  20/200 acc=0.800
+  40/200 acc=0.625
+  60/200 acc=0.600
+  80/200 acc=0.550
+  100/200 acc=0.560
+  120/200 acc=0.567
+  140/200 acc=0.557
+  160/200 acc=0.537
+  180/200 acc=0.533
+  200/200 acc=0.525
+[v5-Q5_K_M] 完成: D:\2026-2027\Phi-2 QLoRA\evaluation\results\v5-Q5_K_M_phase_results.jsonl
+        汇总: D:\2026-2027\Phi-2 QLoRA\evaluation\results\v5-Q5_K_M_phase_summary.md
+
+===== v5-Q4_K_M · basic =====
+D:\2026-2027\Phi-2 QLoRA\evaluation\eval_run.py:153: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml
+[v5-Q4_K_M] 加载 D:\2026-2027\Phi-2 QLoRA\phi2-v5-q4_k_m.gguf ...
+  20/240 acc=1.000
+  40/240 acc=1.000
+  60/240 acc=1.000
+  80/240 acc=1.000
+  100/240 acc=0.990
+  120/240 acc=0.983
+  140/240 acc=0.986
+  160/240 acc=0.981
+  180/240 acc=0.983
+  200/240 acc=0.985
+  220/240 acc=0.986
+  240/240 acc=0.979
+[v5-Q4_K_M] 完成: D:\2026-2027\Phi-2 QLoRA\evaluation\results\v5-Q4_K_M_basic_results.jsonl
+        汇总: D:\2026-2027\Phi-2 QLoRA\evaluation\results\v5-Q4_K_M_basic_summary.md
+
+===== v5-Q4_K_M · phase =====
+D:\2026-2027\Phi-2 QLoRA\evaluation\eval_run.py:153: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml
+[v5-Q4_K_M] 加载 D:\2026-2027\Phi-2 QLoRA\phi2-v5-q4_k_m.gguf ...
+  20/200 acc=0.700
+  40/200 acc=0.500
+  60/200 acc=0.483
+  80/200 acc=0.438
+  100/200 acc=0.460
+  120/200 acc=0.442
+  140/200 acc=0.443
+  160/200 acc=0.431
+  180/200 acc=0.428
+  200/200 acc=0.430
+[v5-Q4_K_M] 完成: D:\2026-2027\Phi-2 QLoRA\evaluation\results\v5-Q4_K_M_phase_results.jsonl
+        汇总: D:\2026-2027\Phi-2 QLoRA\evaluation\results\v5-Q4_K_M_phase_summary.md
+
+===== dmpc1-Q6_K · basic =====
+D:\2026-2027\Phi-2 QLoRA\evaluation\eval_run.py:153: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml
+[dmpc1-Q6_K] 加载 D:\2026-2027\Phi-2 QLoRA\dmpc-q6_k.gguf ...
+  20/240 acc=0.000
+  40/240 acc=0.000
+  60/240 acc=0.000
+  80/240 acc=0.000
+  100/240 acc=0.100
+  120/240 acc=0.250
+  140/240 acc=0.357
+  160/240 acc=0.438
+  180/240 acc=0.500
+  200/240 acc=0.550
+  220/240 acc=0.591
+  240/240 acc=0.625
+[dmpc1-Q6_K] 完成: D:\2026-2027\Phi-2 QLoRA\evaluation\results\dmpc1-Q6_K_basic_results.jsonl
+        汇总: D:\2026-2027\Phi-2 QLoRA\evaluation\results\dmpc1-Q6_K_basic_summary.md
+
+全部完成

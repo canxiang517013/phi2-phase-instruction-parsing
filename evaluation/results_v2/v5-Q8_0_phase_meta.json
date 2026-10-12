@@ -1,0 +1,10 @@
+{
+ "label": "v5-Q8_0",
+ "model": "phi2-v5-q8_0.gguf",
+ "testset": "phase",
+ "n": 200,
+ "vram_mb": 3992,
+ "wall_s": 109.3,
+ "note": "",
+ "ts": "2026-10-12 12:03:09"
+}

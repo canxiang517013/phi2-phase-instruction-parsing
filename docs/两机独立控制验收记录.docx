@@ -1,0 +1,137 @@
+# -*- coding: utf-8 -*-
+"""生成《两机独立控制验收记录》docx - 任务B最终验收"""
+import os
+from docx import Document
+from docx.shared import Pt, RGBColor
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.oxml.ns import qn
+from docx.oxml import OxmlElement
+
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "两机独立控制验收记录.docx")
+doc = Document()
+style = doc.styles['Normal']; style.font.name='仿宋'; style.font.size=Pt(12)
+style._element.rPr.rFonts.set(qn('w:eastAsia'),'仿宋')
+
+def set_cn_font(run, font_name='仿宋', size=12, bold=False, color=None):
+    run.font.name=font_name; run.font.size=Pt(size); run.font.bold=bold
+    if color: run.font.color.rgb=color
+    rPr=run._element.get_or_add_rPr(); rFonts=rPr.find(qn('w:rFonts'))
+    if rFonts is None: rFonts=OxmlElement('w:rFonts'); rPr.append(rFonts)
+    rFonts.set(qn('w:eastAsia'),font_name)
+    rFonts.set(qn('w:ascii'),'Times New Roman' if font_name=='仿宋' else font_name)
+    rFonts.set(qn('w:hAnsi'),'Times New Roman' if font_name=='仿宋' else font_name)
+
+def heading(text, level=1):
+    sizes={1:18,2:15}
+    p=doc.add_paragraph(); p.paragraph_format.space_before=Pt(14 if level==1 else 10); p.paragraph_format.space_after=Pt(6)
+    run=p.add_run(text); set_cn_font(run,'黑体',sizes.get(level,12),bold=True)
+
+def para(text='', indent=True, size=12, bold=False):
+    p=doc.add_paragraph()
+    if indent: p.paragraph_format.first_line_indent=Pt(24)
+    p.paragraph_format.space_after=Pt(4); p.paragraph_format.line_spacing=1.5
+    if text: run=p.add_run(text); set_cn_font(run,'仿宋',size,bold=bold)
+
+def code(code_text):
+    for line in code_text.split('\n'):
+        p=doc.add_paragraph(); p.paragraph_format.space_after=Pt(0); p.paragraph_format.left_indent=Pt(12); p.paragraph_format.line_spacing=1.15
+        pPr=p._element.get_or_add_pPr(); shd=OxmlElement('w:shd'); shd.set(qn('w:val'),'clear'); shd.set(qn('w:fill'),'F2F2F2'); pPr.append(shd)
+        run=p.add_run(line if line else ' '); run.font.name='Consolas'; run.font.size=Pt(9)
+    doc.add_paragraph().paragraph_format.space_after=Pt(0)
+
+def table(headers, rows):
+    t=doc.add_table(rows=1+len(rows), cols=len(headers)); t.style='Light Grid Accent 1'; t.alignment=WD_TABLE_ALIGNMENT.CENTER
+    for i,h in enumerate(headers):
+        cell=t.rows[0].cells[i]; cell.text=''; run=cell.paragraphs[0].add_run(h); set_cn_font(run,'黑体',10,bold=True); cell.paragraphs[0].alignment=WD_ALIGN_PARAGRAPH.CENTER
+    for r,row in enumerate(rows):
+        for c,val in enumerate(row):
+            cell=t.rows[r+1].cells[c]; cell.text=''; run=cell.paragraphs[0].add_run(str(val)); set_cn_font(run,'仿宋',10)
+    doc.add_paragraph().paragraph_format.space_after=Pt(2)
+
+def note_box(title, content, color='4472C4'):
+    p=doc.add_paragraph(); p.paragraph_format.left_indent=Pt(12); p.paragraph_format.space_before=Pt(6); p.paragraph_format.space_after=Pt(6)
+    pPr=p._element.get_or_add_pPr(); pbdr=OxmlElement('w:pBdr'); left=OxmlElement('w:left')
+    left.set(qn('w:val'),'single'); left.set(qn('w:sz'),'18'); left.set(qn('w:space'),'8'); left.set(qn('w:color'),color); pbdr.append(left); pPr.append(pbdr)
+    c=RGBColor(int(color[0:2],16),int(color[2:4],16),int(color[4:6],16))
+    run=p.add_run(title+'  '); set_cn_font(run,'黑体',11,bold=True,color=c)
+    run2=p.add_run(content); set_cn_font(run2,'仿宋',11)
+
+# 封面
+for _ in range(5): doc.add_paragraph()
+p=doc.add_paragraph(); p.alignment=WD_ALIGN_PARAGRAPH.CENTER
+run=p.add_run('两机独立控制'); set_cn_font(run,'黑体',26,bold=True)
+p=doc.add_paragraph(); p.alignment=WD_ALIGN_PARAGRAPH.CENTER
+run=p.add_run('验收记录'); set_cn_font(run,'黑体',26,bold=True)
+doc.add_paragraph()
+p=doc.add_paragraph(); p.alignment=WD_ALIGN_PARAGRAPH.CENTER
+run=p.add_run('—— 任务B「多机集群仿真扩展至两架」最终验收 ——'); set_cn_font(run,'仿宋',13,color=RGBColor(0x59,0x59,0x59))
+for _ in range(6): doc.add_paragraph()
+p=doc.add_paragraph(); p.alignment=WD_ALIGN_PARAGRAPH.CENTER
+run=p.add_run('编制：舒毓川\n日期：2026 年 8 月\n验收标准：两机同时 SITL 运行，状态互不干扰'); set_cn_font(run,'仿宋',12)
+doc.add_page_break()
+
+heading('一、验收结论', 1)
+note_box('结论：验收通过', '两架无人机同时 SITL 运行，通过 PX4 自动命名空间（/fmu 与 /px4_1/fmu）实现话题隔离，由两个独立的 nl_command_node 分别控制，各自完成「起飞 → 飞向不同目标 → 悬停 → 返回 → 降落」的完整任务闭环，全程互不干扰。任务清单验收标准全部达标。', color='70AD47')
+
+heading('二、系统架构', 1)
+code('''Windows 宿主机                    WSL2 (Ubuntu 22.04)
+┌──────────────────┐    ┌────────────────────────────────────────┐
+│ AirSim (UE4)      │    │ DDS Agent (:8888)                       │
+│  PX4_Drone_1      │◄───┤   ├─ PX4 实例0 (/fmu/...  sysid=1)      │
+│  PX4_Drone_2      │    │   ├─ PX4 实例1 (/px4_1/fmu/... sysid=2) │
+│                  │    │   │                                      │
+│ Phi-2 推理服务    │◄───┤ node_1 (nl_command_node)                │
+│ (:8080 Q5_K_M)   │    │   订阅 /drone1/nl_input → 控制 /fmu     │
+│                  │    │ node_2 (nl_command_drone2)               │
+│                  │    │   订阅 /drone2/nl_input → 控制 /px4_1/fmu│
+└──────────────────┘    └────────────────────────────────────────┘''')
+
+heading('三、隔离机制（三层）', 1)
+table(
+    ['隔离层', '机制', '效果'],
+    [
+        ['DDS 话题命名空间', 'PX4 -i 1 自动前缀 /px4_1/', '/fmu/ 24话题 + /px4_1/fmu/ 24话题，互不串扰'],
+        ['节点话题隔离', 'nl_topic 参数（/drone1/nl_input vs /drone2/nl_input）', '指令各自送达对应节点'],
+        ['MAV_SYS_ID', 'target_system 参数（实例1=1, 实例2=2）', 'VehicleCommand 不被对方实例忽略'],
+    ]
+)
+
+heading('四、排障历程（4个关键bug）', 1)
+table(
+    ['问题', '现象', '根因', '修复'],
+    [
+        ['executable名不匹配', 'launch跑不通', 'launch用短名，setup.py用_node后缀', '统一为_node后缀'],
+        ['-p参数不生效', '两节点都订阅/nl_input', 'ros2 run的-p被解释为remap', '加--ros-args前缀'],
+        ['DDS手动重启丢in方向', '实例2收不到命令', 'pipeline重启uxrce_dds_client只建writer', '改用PX4自动命名空间px4_1'],
+        ['target_system不匹配', '实例2忽略所有命令', '多实例sysid=1+instance=2，硬编码sysid=1', 'target_system参数化，节点2传2'],
+    ]
+)
+
+heading('五、验收指标', 1)
+table(
+    ['指标', '结果'],
+    [
+        ['两 PX4 实例同时 SITL', '✅ 均连上 AirSim（TCP 4560/4561）'],
+        ['话题隔离', '✅ /fmu/ 24 + /px4_1/fmu/ 24（共48）'],
+        ['Drone 1 独立飞行', '✅ 飞向(10,0,3)，完整闭环'],
+        ['Drone 2 独立飞行', '✅ 飞向(0,10,3)，完整闭环'],
+        ['互不干扰', '✅ 各自独立完成起飞/巡航/返回/降落'],
+        ['Phi-2 双节点共用', '✅ 同一推理服务支撑两节点解析'],
+    ]
+)
+
+heading('六、八月成果最终盘点', 1)
+table(
+    ['任务清单项', '验收标准', '状态'],
+    [
+        ['Phi-2 QLoRA 微调', '跑通微调+6-bit量化推理', '✅ 100%准确率 + Q6_K 90tok/s + 5档基准矩阵'],
+        ['通读师兄论文+E1-E8', '能口头讲清', '✅ 两份学习文档（初学者+进阶）'],
+        ['端侧指令解析Demo', 'NL→结构化消息→Offboard→全链路', '✅ 完整闭环23秒'],
+        ['多机集群扩展至两架', '两机同时SITL运行互不干扰', '✅ 独立控制各自完整闭环'],
+    ]
+)
+
+para('至此，八月任务清单四项全部超额完成。', bold=True, indent=False)
+doc.save(OUT)
+print("文档已生成：", OUT)

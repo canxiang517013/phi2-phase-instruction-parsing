@@ -1,0 +1,22 @@
+# 模型与二进制（可由 adapter+基座重新生成，或与复现无关）
+*.gguf
+models/
+phi2-dmpc-merged/
+phi2-v6lc-merged/
+OllamaSetup.exe
+ollama_models/
+
+# 训练中间产物（checkpoint 大，训练日志 *.log 在根目录会保留）
+phi2-dmpc-3060/
+phi2-v6lc-3060/
+
+# 独立仓库（师兄仓库版本 c767b88 已记录在 repro_docs；llama.cpp 版本见第 6 步）
+phase-aware-llm-meta-controller/
+llama.cpp/
+
+# 环境
+.venv/
+__pycache__/
+*.pyc
+.zcode/
+.vscode/

@@ -1,0 +1,22 @@
+# Phi-2 QLoRA 实验 - 依赖清单
+# 安装: pip install -r requirements.txt
+#
+# 注: torch 建议按本机 CUDA 版本从官方索引安装（本项目已在 .venv 中预装 torch 2.13.0）
+
+# --- 微调阶段 ---
+torch>=2.1
+transformers>=4.45
+peft>=0.11
+trl>=0.11
+bitsandbytes>=0.43
+accelerate>=0.30
+datasets>=2.20
+
+# --- 模型下载（huggingface.co 不可达时用 ModelScope）---
+modelscope>=1.18
+
+# --- 显存监控 ---
+pynvml>=7.0
+
+# 注：推理测评用 transformers 4-bit（同训练栈），无需 llama-cpp-python。
+# 如需 GGUF 部署，Windows+CUDA 需自行编译 llama-cpp-python 或安装 CUDA Toolkit。

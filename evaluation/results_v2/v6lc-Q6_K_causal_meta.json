@@ -1,0 +1,10 @@
+{
+ "label": "v6lc-Q6_K",
+ "model": "phi2-v6lc-q6_k.gguf",
+ "testset": "causal",
+ "n": 240,
+ "vram_mb": 4893,
+ "wall_s": 163.5,
+ "note": "G7-causal",
+ "ts": "2026-10-12 13:32:25"
+}

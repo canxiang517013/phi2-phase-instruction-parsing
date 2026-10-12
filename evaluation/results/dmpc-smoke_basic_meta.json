@@ -1,0 +1,10 @@
+{
+ "label": "dmpc-smoke",
+ "model": "dmpc-q6_k.gguf",
+ "testset": "basic",
+ "n": 20,
+ "vram_mb": 4551,
+ "wall_s": 9.6,
+ "note": "",
+ "ts": "2026-09-06 20:26:51"
+}

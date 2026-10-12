@@ -1,0 +1,31 @@
+{
+ "ts": "2026-10-12 11:34:56",
+ "train_files": [
+  "dataset_phased_v5.jsonl",
+  "dataset_original_109.jsonl",
+  "dataset.jsonl"
+ ],
+ "n_train_inputs": 726,
+ "testsets": {
+  "basic_240.jsonl": {
+   "n": 240,
+   "exact_dup": [],
+   "near_dup": [],
+   "whitelisted": 0
+  },
+  "phase_200.jsonl": {
+   "n": 200,
+   "exact_dup": [],
+   "near_dup": [],
+   "whitelisted": 200
+  },
+  "robust_160.jsonl": {
+   "n": 160,
+   "exact_dup": [],
+   "near_dup": [],
+   "whitelisted": 58
+  }
+ },
+ "violations": [],
+ "whitelist_used": 258
+}

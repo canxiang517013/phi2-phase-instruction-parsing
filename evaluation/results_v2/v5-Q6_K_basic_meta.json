@@ -1,0 +1,10 @@
+{
+ "label": "v5-Q6_K",
+ "model": "phi2-v5-q6_k.gguf",
+ "testset": "basic",
+ "n": 240,
+ "vram_mb": 3389,
+ "wall_s": 143.5,
+ "note": "",
+ "ts": "2026-10-12 12:07:12"
+}

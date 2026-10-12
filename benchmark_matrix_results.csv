@@ -1,0 +1,6 @@
+label,file,size_gb,accuracy,tok_s,ms_tok,vram_mb,note
+FP16,phi2-fp16.gguf,5.18,100% (16/16),18.7,53.6,6041,
+Q8_0,phi2-q8_0.gguf,2.75,88% (14/16),72.5,13.8,3967,
+Q6_K,phi2-dmpc-q6_k.gguf,2.13,100% (16/16),79.5,12.6,3521,
+Q5_K_M,phi2-q5_k_m.gguf,1.87,100% (16/16),87.9,11.4,3044,
+Q4_K_M,phi2-q4_k_m.gguf,1.62,88% (14/16),91.0,11.0,2784,

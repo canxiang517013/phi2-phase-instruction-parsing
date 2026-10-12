@@ -1,0 +1,10 @@
+{
+ "label": "dmpc1-Q6_K",
+ "model": "dmpc-q6_k.gguf",
+ "testset": "basic",
+ "n": 240,
+ "vram_mb": 3357,
+ "wall_s": 207.4,
+ "note": "",
+ "ts": "2026-09-07 08:59:34"
+}

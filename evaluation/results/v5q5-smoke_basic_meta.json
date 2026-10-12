@@ -1,0 +1,10 @@
+{
+ "label": "v5q5-smoke",
+ "model": "phi2-phased-v5-q5_k_m.gguf",
+ "testset": "basic",
+ "n": 20,
+ "vram_mb": 5989,
+ "wall_s": 9.5,
+ "note": "",
+ "ts": "2026-09-06 20:19:45"
+}
