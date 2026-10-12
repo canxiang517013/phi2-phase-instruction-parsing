@@ -31,7 +31,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 # ----------------------------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "models", "phi-2")     # 本地基座模型
-DATA_PATH = os.path.join(BASE_DIR, "dataset.jsonl")
+DATA_PATH = os.path.join(BASE_DIR, "datasets", "dataset.jsonl")
 OUTPUT_DIR = os.path.join(BASE_DIR, "phi2-dmpc-3060")      # 训练日志/checkpoint
 ADAPTER_DIR = os.path.join(BASE_DIR, "phi2-dmpc-adapter")  # 最终 LoRA 权重
 PEAK_VRAM_FILE = os.path.join(BASE_DIR, "train_peak_vram.txt")

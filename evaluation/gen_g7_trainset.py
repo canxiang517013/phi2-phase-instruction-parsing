@@ -94,15 +94,15 @@ def main():
                         'input': prose_situation(rng, phase, params) + ' ' + cmd,
                         'output': output})
 
-    out_long = os.path.join(ROOT, 'g7_long_120.jsonl')
+    out_long = os.path.join(ROOT, 'datasets', 'g7_long_120.jsonl')
     with open(out_long, 'w', encoding='utf-8') as f:
         for s in samples:
             f.write(json.dumps(s, ensure_ascii=False) + '\n')
 
-    v5 = os.path.join(ROOT, 'dataset_phased_v5.jsonl')
+    v5 = os.path.join(ROOT, 'datasets', 'dataset_phased_v5.jsonl')
     with open(v5, encoding='utf-8') as f:
         v5_lines = f.readlines()
-    out_train = os.path.join(ROOT, 'dataset_v6lc.jsonl')
+    out_train = os.path.join(ROOT, 'datasets', 'dataset_v6lc.jsonl')
     with open(out_train, 'w', encoding='utf-8') as f:
         f.writelines(v5_lines)
         for s in samples:
