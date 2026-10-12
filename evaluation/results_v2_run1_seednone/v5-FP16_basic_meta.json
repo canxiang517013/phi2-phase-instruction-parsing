@@ -1,0 +1,10 @@
+{
+ "label": "v5-FP16",
+ "model": "phi2-fp16.gguf",
+ "testset": "basic",
+ "n": 240,
+ "vram_mb": 6022,
+ "wall_s": 542.5,
+ "note": "",
+ "ts": "2026-10-12 11:45:22"
+}

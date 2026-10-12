@@ -51,6 +51,7 @@ TESTSET_FILES = {'basic': 'basic_240.jsonl', 'phase': 'phase_200.jsonl',
 
 MAX_TOKENS = 70
 TEMPERATURE = 0.1
+SEED = 20260906  # 固定采样种子：分离能力差异与采样噪声（2026-10-12 方法论修复）
 
 ENVELOPE = {'abs_xy': 300.0, 'z_min': 0.0, 'z_max': 60.0,
             'uav_ids': set(range(1, 6)),
@@ -176,7 +177,7 @@ def run_model(label, model_path, testset_name, limit, note=''):
     for i, item in enumerate(items, 1):
         prompt = build_prompt(item)
         t0 = time.perf_counter()
-        out = llm(prompt, max_tokens=MAX_TOKENS, temperature=TEMPERATURE,
+        out = llm(prompt, max_tokens=MAX_TOKENS, temperature=TEMPERATURE, seed=SEED,
                   stop=['<|endoftext|>', '\n###'])
         latency = (time.perf_counter() - t0) * 1000
         raw = out['choices'][0]['text'].strip()

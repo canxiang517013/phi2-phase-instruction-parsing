@@ -1,13 +1,13 @@
 # v5-Q5_K_M · robust 评测汇总（v2 六指标）
 
-- 模型 `phi2-phased-v5-q5_k_m.gguf` | n=160 | 2026-10-12 12:16:32 | 显存 3744MB | 耗时 88.9s
+- 模型 `phi2-phased-v5-q5_k_m.gguf` | n=160 | 2026-10-12 21:50:10 | 显存 3766MB | 耗时 126.1s
 
 ## 六指标总览
 
-- 主指标（按 judge 类型）：**23/160 (14.4%, CI [9.8, 20.6])**
+- 主指标（按 judge 类型）：**21/160 (13.1%, CI [8.7, 19.2])**
 - schema 有效率：132/160 (82.5%, CI [75.9, 87.6])
 - 非法动作率（schema 合法但包络外）：23/160 (14.4%, CI [9.8, 20.6])
-- 延迟 ms：p50=515 p95=871 max=900
+- 延迟 ms：p50=658 p95=1138 max=3495
 
 ## 字段级准确率（有金标准条目）
 
@@ -17,12 +17,12 @@
 | formation | 9/45 (20.0%, CI [10.9, 33.8]) |
 | ids | 31/45 (68.9%, CI [54.3, 80.5]) |
 | tx | 32/45 (71.1%, CI [56.6, 82.3]) |
-| ty | 31/45 (68.9%, CI [54.3, 80.5]) |
-| tz | 23/45 (51.1%, CI [37.0, 65.0]) |
+| ty | 32/45 (71.1%, CI [56.6, 82.3]) |
+| tz | 20/45 (44.4%, CI [30.9, 58.8]) |
 
 - 坐标 MAE-x: 44.624 m (bootstrap 95% CI [22.556, 70.347], n=45)
-- 坐标 MAE-y: 47.600 m (bootstrap 95% CI [24.631, 75.620], n=45)
-- 坐标 MAE-z: 4.416 m (bootstrap 95% CI [2.773, 6.129], n=45)
+- 坐标 MAE-y: 47.489 m (bootstrap 95% CI [24.402, 75.509], n=45)
+- 坐标 MAE-z: 5.082 m (bootstrap 95% CI [3.407, 6.769], n=45)
 
 ## 按类别
 
@@ -33,7 +33,7 @@
 | long-context | 30 | 0/30 (0.0%, CI [0.0, 11.4]) | 7/30 | 0 |
 | missing-field | 25 | 0/25 (0.0%, CI [0.0, 13.3]) | 25/25 | 0 |
 | out-of-envelope | 25 | 2/25 (8.0%, CI [2.2, 25.0]) | 25/25 | 23 |
-| random-phase | 30 | 17/30 (56.7%, CI [39.2, 72.6]) | 29/30 | 0 |
+| random-phase | 30 | 15/30 (50.0%, CI [33.2, 66.8]) | 29/30 | 0 |
 
 ## 鲁棒性行为分布（safe 条目）
 
@@ -44,10 +44,10 @@
 | missing-field | 0 | 25 | 0 | 0 |
 | out-of-envelope | 0 | 0 | 2 | 23 |
 
-## 失败样例（前 12 / 137）
+## 失败样例（前 12 / 139）
 
 - **R-001** [ambiguous/vague] fabricated-safe: `Everyone, fall back.`
-  - 期望 (safe 规则)；输出 `{"mode": "swarm", "formation": "wedge", "uav_ids": [1, 2, 3, 4], "target": [-15.0, -15.0, 15.0]}`
+  - 期望 (safe 规则)；输出 `{"mode": "swarm", "formation": "wedge", "uav_ids": [1, 2, 3, 4], "target": [-15.0, -15.0, 5.0]}`
 - **R-002** [bad-phase/truncated] fabricated-safe: `UAV 3 and 4, tighten up.`
   - 期望 (safe 规则)；输出 `{"mode": "swarm", "formation": "wedge", "uav_ids": [3, 4], "target": [15.0, 15.0, 15.0]}`
 - **R-003** [random-phase/ood] target-z: `Everyone, hold.`

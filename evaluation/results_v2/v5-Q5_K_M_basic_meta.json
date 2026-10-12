@@ -3,8 +3,8 @@
  "model": "phi2-phased-v5-q5_k_m.gguf",
  "testset": "basic",
  "n": 240,
- "vram_mb": 3695,
- "wall_s": 124.7,
+ "vram_mb": 3764,
+ "wall_s": 166.9,
  "note": "",
- "ts": "2026-10-12 12:13:12"
+ "ts": "2026-10-12 21:45:34"
 }

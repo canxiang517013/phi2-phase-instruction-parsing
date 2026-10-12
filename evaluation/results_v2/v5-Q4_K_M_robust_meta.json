@@ -3,8 +3,8 @@
  "model": "phi2-v5-q4_k_m.gguf",
  "testset": "robust",
  "n": 160,
- "vram_mb": 3662,
- "wall_s": 89.9,
+ "vram_mb": 3564,
+ "wall_s": 118.6,
  "note": "",
- "ts": "2026-10-12 12:21:44"
+ "ts": "2026-10-12 21:56:49"
 }

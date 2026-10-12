@@ -1,13 +1,13 @@
 # v5-Q4_K_M · basic 评测汇总（v2 六指标）
 
-- 模型 `phi2-v5-q4_k_m.gguf` | n=240 | 2026-10-12 12:18:31 | 显存 3495MB | 耗时 116.4s
+- 模型 `phi2-v5-q4_k_m.gguf` | n=240 | 2026-10-12 21:52:39 | 显存 3528MB | 耗时 147.0s
 
 ## 六指标总览
 
 - 主指标（按 judge 类型）：**235/240 (97.9%, CI [95.2, 99.1])**
 - schema 有效率：237/240 (98.8%, CI [96.4, 99.6])
 - 非法动作率（schema 合法但包络外）：0/240 (0.0%, CI [0.0, 1.6])
-- 延迟 ms：p50=485 p95=517 max=537
+- 延迟 ms：p50=610 p95=659 max=689
 
 ## 字段级准确率（有金标准条目）
 
@@ -21,7 +21,7 @@
 | tz | 240/240 (100.0%, CI [98.4, 100.0]) |
 
 - 坐标 MAE-x: 0.000 m (bootstrap 95% CI [0.000, 0.000], n=240)
-- 坐标 MAE-y: 0.449 m (bootstrap 95% CI [0.000, 1.129], n=240)
+- 坐标 MAE-y: 0.445 m (bootstrap 95% CI [0.000, 1.114], n=240)
 - 坐标 MAE-z: 0.000 m (bootstrap 95% CI [0.000, 0.000], n=240)
 
 ## 按类别
@@ -44,7 +44,7 @@
 - **B-157** [swarm-grid/in] mode: `UAV 2, 3 and 5, grid formation, target (-17.3, 2.4, 11.1).`
   - 期望 {"mode": "swarm", "formation": "grid", "uav_ids": [2, 3, 5], "target": [-17.3, 2.4, 11.1]}；输出 `{"mode": "grid", "formation": "free", "uav_ids": [2, 3, 5], "target": [-17.3, 2.4, 11.1]}`
 - **B-235** [swarm-circle/out] target: `Have UAV 3 and 4 form up in a circle and proceed to (-13, -59.4, 18).`
-  - 期望 {"mode": "swarm", "formation": "circle", "uav_ids": [3, 4], "target": [-13.0, -59.4, 18.0]}；输出 `{"mode": "swarm", "formation": "circle", "uav_ids": [3, 4], "target": [-13.0, -5.0, 18.0]}`
+  - 期望 {"mode": "swarm", "formation": "circle", "uav_ids": [3, 4], "target": [-13.0, -59.4, 18.0]}；输出 `{"mode": "swarm", "formation": "circle", "uav_ids": [3, 4], "target": [-13.0, -5.9, 18.0]}`
 - **B-239** [swarm-circle/out] target: `Have UAV 2, 4 and 5 form up in a circle and proceed to (-9, -59.2, 10).`
   - 期望 {"mode": "swarm", "formation": "circle", "uav_ids": [2, 4, 5], "target": [-9.0, -59.2, 10.0]}；输出 `{"mode": "swarm", "formation": "circle", "uav_ids": [2, 4, 5], "target": [-9.0, -5.8, 10.0]}`
 

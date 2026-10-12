@@ -1,45 +1,45 @@
 # v5-Q4_K_M · phase 评测汇总（v2 六指标）
 
-- 模型 `phi2-v5-q4_k_m.gguf` | n=200 | 2026-10-12 12:20:12 | 显存 3538MB | 耗时 99.4s
+- 模型 `phi2-v5-q4_k_m.gguf` | n=200 | 2026-10-12 21:54:48 | 显存 3528MB | 耗时 126.8s
 
 ## 六指标总览
 
-- 主指标（按 judge 类型）：**86/200 (43.0%, CI [36.3, 49.9])**
-- schema 有效率：195/200 (97.5%, CI [94.3, 98.9])
+- 主指标（按 judge 类型）：**83/200 (41.5%, CI [34.9, 48.4])**
+- schema 有效率：194/200 (97.0%, CI [93.6, 98.6])
 - 非法动作率（schema 合法但包络外）：0/200 (0.0%, CI [0.0, 1.9])
-- 延迟 ms：p50=492 p95=540 max=610
+- 延迟 ms：p50=635 p95=697 max=886
 
 ## 字段级准确率（有金标准条目）
 
 | 字段 | 准确率 |
 |---|---|
 | mode | 200/200 (100.0%, CI [98.1, 100.0]) |
-| formation | 72/200 (36.0%, CI [29.7, 42.9]) |
-| ids | 190/200 (95.0%, CI [91.0, 97.3]) |
-| tx | 196/200 (98.0%, CI [95.0, 99.2]) |
-| ty | 192/200 (96.0%, CI [92.3, 98.0]) |
-| tz | 87/200 (43.5%, CI [36.8, 50.4]) |
+| formation | 74/200 (37.0%, CI [30.6, 43.9]) |
+| ids | 189/200 (94.5%, CI [90.4, 96.9]) |
+| tx | 198/200 (99.0%, CI [96.4, 99.7]) |
+| ty | 194/200 (97.0%, CI [93.6, 98.6]) |
+| tz | 84/200 (42.0%, CI [35.4, 48.9]) |
 
-- 坐标 MAE-x: 0.715 m (bootstrap 95% CI [0.120, 1.540], n=200)
-- 坐标 MAE-y: 0.800 m (bootstrap 95% CI [0.300, 1.450], n=200)
-- 坐标 MAE-z: 4.845 m (bootstrap 95% CI [4.200, 5.495], n=200)
+- 坐标 MAE-x: 0.270 m (bootstrap 95% CI [0.000, 0.720], n=200)
+- 坐标 MAE-y: 0.525 m (bootstrap 95% CI [0.125, 1.025], n=200)
+- 坐标 MAE-z: 4.975 m (bootstrap 95% CI [4.320, 5.645], n=200)
 
 ## 按类别
 
 | category | n | 主指标 | schema | 非法 |
 |---|---|---|---|---|
-| ASSEMBLE | 40 | 17/40 (42.5%, CI [28.5, 57.8]) | 40/40 | 0 |
+| ASSEMBLE | 40 | 16/40 (40.0%, CI [26.3, 55.4]) | 40/40 | 0 |
 | HOLD | 40 | 40/40 (100.0%, CI [91.2, 100.0]) | 40/40 | 0 |
 | OBSTACLE_AVOID | 40 | 10/40 (25.0%, CI [14.2, 40.2]) | 40/40 | 0 |
-| RECON | 40 | 19/40 (47.5%, CI [32.9, 62.5]) | 40/40 | 0 |
-| RECONFIGURE | 40 | 0/40 (0.0%, CI [0.0, 8.8]) | 35/40 | 0 |
+| RECON | 40 | 17/40 (42.5%, CI [28.5, 57.8]) | 40/40 | 0 |
+| RECONFIGURE | 40 | 0/40 (0.0%, CI [0.0, 8.8]) | 34/40 | 0 |
 
-## 失败样例（前 12 / 114）
+## 失败样例（前 12 / 117）
 
 - **P-001** [ASSEMBLE/in-range-unseen] target-z: `Everyone, scout ahead.`
   - 期望 {"mode": "swarm", "formation": null, "uav_ids": [1, 2, 3, 4], "target": [0.0, -10.0, 5.0]}；输出 `{"mode": "swarm", "formation": "line", "uav_ids": [1, 2, 3, 4], "target": [0.0, -10.0, 15.0]}`
 - **P-003** [ASSEMBLE/ood] target-z: `All units, change formation.`
-  - 期望 {"mode": "swarm", "formation": null, "uav_ids": [1, 2, 3, 4], "target": [-30.0, 8.0, 5.0]}；输出 `{"mode": "swarm", "formation": "line", "uav_ids": [1, 2, 3, 4], "target": [-30.0, 8.0, 15.0]}`
+  - 期望 {"mode": "swarm", "formation": null, "uav_ids": [1, 2, 3, 4], "target": [-30.0, 8.0, 5.0]}；输出 `{"mode": "swarm", "formation": "free", "uav_ids": [1, 2, 3, 4], "target": [-30.0, 8.0, 15.0]}`
 - **P-008** [OBSTACLE_AVOID/seen] target-z: `UAV 3 and 4, adjust formation.`
   - 期望 {"mode": "swarm", "formation": null, "uav_ids": [3, 4], "target": [20.0, 0.0, 15.0]}；输出 `{"mode": "swarm", "formation": "line", "uav_ids": [3, 4], "target": [20.0, 0.0, 20.0]}`
 - **P-009** [RECON/in-range-unseen] target-z: `All units, execute.`
