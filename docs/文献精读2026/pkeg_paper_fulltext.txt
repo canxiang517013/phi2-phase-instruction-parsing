@@ -1,0 +1,399 @@
+TITLE: Progressive knowledge-enhanced instruction generation for tactical UAV swarms
+DOI: 10.1016/j.dt.2026.06.004
+KEYWORDS: Unmanned aerial vehicle swarm; Command and control; Large language model; Retrieval-augmented generation
+
+===== ABSTRACT =====
+Highlights
+•
+PKEG framework transforms unconstrained LLMs into structured intent parsing.
+•
+Knowledge-driven GraphRAG maps complex spoken commands to physical UAV actions.
+•
+Real-world VTOL swarm deployments achieve highly reliable physical actuation.
+•
+Platform-agnostic architecture supports diverse heterogeneous unmanned systems.
+•
+Empowers intelligent command of next-generation UAV swarms.
+Abstract
+Modern unmanned aerial vehicle systems are rapidly evolving toward intelligence and swarm operations, necessitating a transition in tactical interaction from fixed-format inputs to diverse and spoken natural language commands featuring multiple intents. Constrained by semantic ambiguity and logical hallucination, the direct outputs of large language models fail to meet practical operational requirements. This paper proposes the Progressive Knowledge-Enhanced Generation (PKEG) framework. By introducing an instruction knowledge graph, this framework transforms the unconstrained probabilistic generation of large models into a structured parsing process governed by tactical logic and topological rules via intent pre-extraction and graph-aware retrieval. To evaluate the proposed method, we construct a multi-grained tactical dataset. Extensive evaluations demonstrate that PKEG significantly outperforms traditional baselines in both parsing accuracy and noise-robustness. Integrated validations across AFSIM simulations and real-world VTOL swarm deployments show that the framework accelerates the tactical OODA loop while ensuring reliable hardware execution in practical operations.
+
+===== SECTION HEADINGS =====
+H2: 1. Introduction
+H2: 2. Problem formulation
+H2: 3. Methodology
+H3: 3.1. Progressive knowledge-enhanced generation framework
+H3: 3.2. Instruction set knowledge graph
+H3: 3.3. Knowledge-guided instruction intent parsing
+H3: 3.4. Knowledge-graph-driven retrieval-augmented generation
+H4: 3.4.1. Graph-structure-aware semantic retrieval
+H4: 3.4.2. Instruction generation
+H3: 3.5. Safety validation and conflict resolution
+H2: 4. Experimental results and analysis
+H3: 4.1. Performance evaluation of PKEG instruction generation
+H4: 4.1.1. Retrieval performance evaluation
+H4: 4.1.2. Performance comparison of instruction generation
+H4: 4.1.3. Ablation study
+H3: 4.2. Robustness evaluation of complex instructions
+H3: 4.3. System deployment and tactical validation
+H4: 4.3.1. Tactical simulation
+H4: 4.3.2. Real-world flight tests
+H2: 5. Conclusions
+H2: CRediT authorship contribution statement
+H2: Declaration of competing interest
+H2: Acknowledgement
+
+===== BODY FULL TEXT =====
+1. Introduction
+Generative AI and modern avionics are shifting the control paradigm for unmanned aerial vehicle (UAV) systems from pre-programmed tasks toward intelligent, natural human-machine interaction. Traditionally, UAVs rely on predefined waypoint sequences or scripted logic executed via ground stations. While this approach of offline planning and online execution is stable in static environments, it is limited in highly dynamic tactical scenarios [[1], [2], [3]]. When battlefield conditions change rapidly, UAVs executing rigid missions cannot adapt. Ground station-based hierarchical operations or pre-set rules lack the flexibility and speed required to maintain the Observe-Orient-Decide-Act (OODA) loop.
+Natural language command interaction serves as an ideal bridge between a commander's cognitive intent and machine execution due to its high semantic bandwidth and ease of interaction [4,5]. However, mapping inherently stochastic natural language into strictly deterministic control instructions poses substantial theoretical and engineering barriers [6]. During time-critical tactical missions, extreme cognitive load and instantaneous decision-making pressure frequently render operator commands non-standard and ambiguous [7]. Moreover, practical combat instructions often incorporate complex nested logic and conditional triggers, such as "strike if an enemy target is detected; otherwise, maintain stealth surveillance", which entail distinct temporal dependencies and mechanistic correlations. Therefore, an instruction generation system must move beyond basic grammatical parsing to precisely capture the operator's core tactical intent within these complex linguistic contexts. The accuracy of semantic parsing and intent recognition directly dictates the response speed and success rate of mission execution. Executing erroneous actions due to misinterpretation, or stalling for repeated confirmations due to low confidence, will fracture the decision chain of the OODA loop and forfeit critical tactical windows [8].
+Although deep learning has achieved breakthroughs in natural language processing [9], adapting these techniques for safety-critical UAV swarm control presents significant challenges. Early approaches primarily relied on template matching [10] or slot filling [11,12]. Bound by manually constructed rule bases, these methods offer high determinism within specific closed domains but suffer from extremely poor generalization. As a result, they fail to accommodate the diverse, spoken expressions of operators under cognitive stress, nor can they resolve complex cross-sentence logical dependencies.
+To overcome the parsing bottlenecks associated with such complex logic and temporal dependencies, some studies have introduced formal methods, such as Linear Temporal Logic (LTL), to translate natural language into mathematically rigorous machine instructions [13]. Nevertheless, applying these formal methods to highly dynamic UAV swarm operations frequently encounters state space explosion.
+Large language models (LLMs) [[14], [15], [16]] have significantly advanced the development of end-to-end generation methods. Researchers have leveraged architectures such as the GPT series [15], LLaMA [17], DeepSeek [18], and multimodal models [19] to map natural language directly into machine instructions via in-context learning [20] or instruction tuning [21,22]. For instance, Huang et al. [23] utilized an LLM controller to enable an embodied feedback loop via in-context learning, translating natural language commands into dynamic action sequences. Similarly, approaches like Code as Policies [24] and Robo-Instruct [25] have successfully converted natural language task descriptions directly into executable robot programs through prompt engineering and instruction-tuned code LLMs. These purely data-driven approaches, however, expose significant shortcomings in the domain of UAV swarm control. In-context learning relies heavily on prompt example stacking; the ensuing lengthy input sequences significantly increase inference latency and easily cause critical information loss in the middle of contexts [26], violating the stringent real-time and accuracy requirements of tactical environments. Conversely, while instruction tuning strictly enforces specific output formats, it often compromises the model's generalization and deep reasoning capabilities, leaving it ill-equipped for complex, long-tail battlefield scenarios. Most critically, because these models inherently function as probabilistic next-word predictors devoid of physical grounding, they remain highly susceptible to logical hallucinations, which precipitate execution conflicts and unpredictable system states [27].
+To mitigate the inherent limitations of end-to-end models regarding real-time response, long-tail generalization, and mechanistic consistency, techniques such as Retrieval-Augmented Generation (RAG) [28], tool calling [29], and model co-design frameworks [30] have been adapted for unmanned system command and control. Rather than relying solely on the internal parametric memory of large language models, these methods construct an external constraint boundary, including retrieving domain-specific knowledge bases, invoking environmental perception tools, and optimizing model architectures for edge deployment, thereby forcing the generation process to align with physical constraints and ensuring that the resulting instruction sequences remain physically and logically executable.
+Nevertheless, current architectures struggle to capture the implicit topological structures and strong temporal dependencies embedded within tactical instructions. Additionally, while frequent tool calling and multi-round reasoning loops enhance action compliance, the ensuing computational overhead and inference latency are incompatible with the strict real-time response demands of the OODA loop. In real-world command scenarios, a single tactical voice utterance frequently comprises multiple parallel actions, cross-clause parameter references, and implicit temporal constraints. When processing such highly composite, long-span instructions, standard retrieval methods typically encode the entire command as a single query vector. This coarse-grained matching obscures the fine-grained structural logic within the instruction, failing to accurately anchor the parameters required for each specific action.
+To address these critical gaps, the domain requires a novel instruction generation paradigm capable of accommodating the diverse expression habits of human commanders. Accordingly, we propose the Progressive Knowledge-Enhanced Generation (PKEG) framework to establish a robust mapping mechanism from unstructured natural language to precise machine instructions. Rather than relying on unpredictable black-box generation, PKEG reconstructs instruction generation as a constrained translation process governed by explicit knowledge. Through a closed-loop pipeline of structured parsing-knowledge enhancement-controlled generation, the framework guarantees that every generated command is strictly compliant both logically and physically.
+The main contributions of this work are summarized as follows:
+(1)
+Propose the PKEG framework alongside an Instruction Knowledge Graph (IKG). It transforms black-box generation into a constrained translation process, balancing reasoning accuracy and response speed.
+(2)
+Design an atomic intent decoupling mechanism. It segments composite tactical speech into independent logical units, effectively alleviating semantic ambiguity and cross-referencing in multi-UAV coordination.
+(3)
+Introduce a graph-aware retrieval and generation strategy. Through topological pruning, it achieves highly precise retrieval by accurately anchoring abstract semantics to physical nodes.
+(4)
+Construct a multi-grained tactical dataset for baseline comparisons, and conduct comprehensive validations through Advanced Framework for Simulation, Integration and Modeling (AFSIM) wargaming and real-world vertical take-off and landing (VTOL) swarm deployments.
+2. Problem formulation
+In highly dynamic adversarial environments, the underlying control systems of UAVs strictly accept structured control sequences. To mathematically formalize the decoding target, we define a machine-executable Atomic Tactical Instruction as a 4-tuple:
+(1)
+𝐼=⟨𝑒,𝑎,𝑝,𝑐⟩
+where 𝑒
+ denotes the specified executing entity, such as a single UAV or a specific formation; 𝑎
+ represents the predefined action primitive; 𝑝
+ denotes the physical parameters required for action execution; and 𝑐
+ defines the environmental or temporal trigger conditions constraining the action. The action space spans three tiers: operational primitives (e.g., ascend, turn, accelerate), tactical maneuvers (e.g., loiter, forward-deploy, return-to-base), and mission-level tasks (e.g., reconnaissance, strike, track). A priority hierarchy follows this tiering: mission-level commands preempt tactical maneuvers, and tactical maneuvers preempt operational primitives, preventing contradictory instructions from reaching the same entity.
+Each parameter field is associated with a standard physical unit and a configurable platform-specific valid range. Each condition 𝐶=(𝑒,𝑠)
+ maps a monitored event 𝑒
+ to an expected state 𝑠
+, evaluating to true when the observed event matches 𝑠
+. A conditional instruction is attached to a parent action and shares its priority level; if the parent action is preempted, the attached condition is cleared. Each trigger entity maintains at most one pending conditional instruction, and a newly arriving condition-instruction pair unconditionally overwrites the previous one, preventing stale branches from accumulating. Actions in the sequence are gated by their associated conditions, executing only upon 𝐶⁡(𝑒)=𝑡⁢𝑟⁢𝑢⁢𝑒
+. Together, the entity-action-parameter-condition structure constitutes a bounded instruction space whose cross-element validity is enforced by the Instruction Knowledge Graph, detailed in Section 3.2. A complete action sequence can be denoted as 𝑆=[𝐼1,𝐼2,…,𝐼𝑛]
+.
+In UAV command interactions, the raw input received by the system is an unstructured natural language sequence 𝑈
+ issued by the commander. A single command sequence 𝑈
+ frequently conceals multiple entity references, nested composite intents, and implicit cross-clause conditional dependencies, resulting in a significant disparity between 𝑈
+ and 𝑆
+. Based on these definitions, the core objective of this study is to construct an intent translation mapping 𝑓:𝑈→𝑆
+. Given an arbitrary unstructured tactical long text 𝑈
+, this mapping mechanism must effectively decouple the logical nesting within the text, eliminate semantic and referential ambiguity, and ultimately output a high-confidence, deterministic sequence of atomic instructions:
+(2)
+𝑆=𝑓⁡(𝑈)=[𝐼1,𝐼2,…,𝐼𝑛]
+Considering the standardization requirements for UAV command interaction, the target output 𝑆
+ is strictly serialized into a standard JSON array format to ensure seamless parsing and efficient execution with the UAV data link.
+3. Methodology
+3.1. Progressive knowledge-enhanced generation framework
+To address the profound challenges of semantic ambiguity and logical hallucination in tactical instruction generation, this paper proposes the PKEG framework. Departing from the uncontrollable paradigm of traditional end-to-end black-box generation, PKEG adopts a cascaded processing architecture comprising structured parsing-knowledge enhancement-controlled generation. By explicitly injecting domain knowledge throughout the entire intent-understanding pipeline, the framework achieves the progressive evolution of data streams from unstructured natural language into precise machine instructions.
+As illustrated in Fig. 1, once an operator inputs a natural language command, it is immediately routed into the PKEG pipeline. The processing initiates at the Knowledge-Guided Instruction Intent Parsing Layer. To address the issues of long-distance dependencies and nested composite intents inherent in natural language, this layer leverages the reasoning capabilities of a lightweight LLM for intent pre-extraction. The system employs a few-shot in-context learning mechanism [31], explicitly injecting tactical logic paradigms via prompt engineering to accurately decouple unstructured long texts into the 4-tuple topological skeleton of entity-action-parameter-condition. Although the Structured Semantic Representations (SSR) generated at this stage remain in an abstract semantic space, this step effectively reduces the dimensionality of highly composite texts into logically coherent, independent intent units, providing a crucial structural prior for subsequent fine-grained knowledge retrieval.
+Download: Download high-res image (787KB)
+Download: Download full-size image
+
+Fig. 1. Progressive knowledge-enhanced generation framework.
+
+The dependency graph then advances to the Semantic Retrieval and Context Enhancement Layer. To compensate for the lack of tactical regulations within the dependency nodes, the system builds upon GraphRAG [32] to perform multi-grained semantic retrieval across the knowledge graph, leveraging a cascaded architecture that uses the Instruction Knowledge Graph as both a semantic index and a logical constraint to accurately map non-standard spoken descriptions onto standardized graph nodes throughout the full retrieval-augmented generation pipeline. Structured prompt engineering is used to fuse the retrieved static knowledge with the dynamic dependency graph to construct an enhanced context embedded with comprehensive physical and tactical constraints. Ultimately, within the Constraint-Driven Generation and Validation Layer, the LLM executes controlled reasoning strictly confined within the logical constraint boundary delineated by the enhanced context. Coupled with an anomaly-triggered agentic validation mechanism, this ensures that the final generated instruction sequences are highly accurate in tactical intent and compliant with physical logic.
+3.2. Instruction set knowledge graph
+In military UAV combat scenarios, the execution space of tactical instructions is inherently constrained, constituting a closed semantic domain defined by established action primitives, parameter ranges, and physical constraints. Based on this characteristic, we construct an IKG tailored for UAV swarm operations. This graph aims to establish a semantic mapping mechanism from the unstructured text space to the structured instruction space, reorganizing the discrete elements of the instruction 4-tuple into a semantic dependency network with topological constraints.
+The construction of the graph originates from the manual extraction of domain knowledge from UAV flight manuals and tactical interaction protocols. By modeling the standard instruction system, we establish a heterogeneous network structure with action anchors 𝑎
+ serving as topological centers. The construction of its edge set is fundamentally a structured mapping of the internal logical affiliations within the 4-tuple ⟨𝑒,𝑎,𝑝,𝑐⟩
+. Excluding the execution entity 𝑒
+, the IKG primarily comprises the action node set 𝐴
+, shared parameter node set 𝑃
+, and condition node set 𝐶
+, as illustrated in Fig. 2.
+Download: Download high-res image (316KB)
+Download: Download full-size image
+
+Fig. 2. Instruction Knowledge Graph, comprising a total of 45 action primitives, 72 nodes, and 205 edges.
+
+The graph defines two specific semantic relations to achieve precise element alignment: the target relation establishes directional links between action nodes 𝑎
+ and parameter nodes 𝑝
+, thereby prescribing the permissible parameter space for different actions; the condition relation connects condition nodes 𝑐
+ to action nodes 𝑎
+, characterizing the execution state constraints of the instruction. This mapping mechanism transforms arbitrarily complex natural language sequences into a set of action-centric subgraphs. Through explicit graph connectivity constraints, it converts ambiguous linear text distances into deterministic topological distances. Consequently, it effectively eliminates referential ambiguity in scenarios involving parallel multi-instructions, providing robust structural prior guidance for the subsequent parsing models.
+3.3. Knowledge-guided instruction intent parsing
+Natural language in UAV command and control inherently exhibits long-distance dependencies and logically nested characteristics. Directly feeding raw, lengthy texts into LLMs via end-to-end generation methods often leads to attention dispersion, subsequently triggering hallucination issues such as action-parameter mismatches. Conversely, using the entire sentence for dense retrieval prevents word embedding models from achieving precise local semantic matching. To address these bottlenecks, we construct an instruction intent dependency parsing module prior to the retrieval-augmented generation phase. Leveraging the reasoning capabilities of LLMs, this module segments natural language into the 4-tuple of entity-action-parameter-condition, denoted as 𝐼=⟨𝑒,𝑎,𝑝,𝑐⟩
+.
+Instruction intent parsing aims to transform the unstructured natural language command sequence U into semantic dependencies with a clear logical topology. Its core task is intent pre-extraction: constrained by the rules of the IKG, a lightweight LLM is employed to strip the associative structure of actions and entities from complex tactical texts, translating composite spoken language into semantically unambiguous instruction segments.
+Fig. 3 illustrates the prompt engineering methodology for knowledge-guided instruction intent parsing. This approach employs a few-shot in-context learning mechanism to logically enhance the parsing model. By embedding tactical logic paradigms for multi-intent decoupling and conditional dependency extraction into the prompts, implicit instruction decoupling rules are explicitly injected. Under this framework, the LLM is transformed into an efficient semantic parser capable of outputting high-confidence tactical intermediate representations. The SSR generated at this stage remains within the semantic space. This design strategy of decoupling semantic understanding from physical execution enables the subsequent retrieval-augmented module to perform fine-grained knowledge matching based on precise structured fields rather than relying on ambiguous full-sentence vector retrieval. This design significantly enhances the robustness and accuracy of instruction generation in complex tactical environments.
+Download: Download high-res image (308KB)
+Download: Download full-size image
+
+Fig. 3. Prompt engineering for instruction intent parsing.
+
+3.4. Knowledge-graph-driven retrieval-augmented generation
+While the SSR generated via intent parsing provides a logical skeleton, its core fields must be mapped from abstract symbols to concrete entities embedded with physical attributes and tactical regulations. To achieve this semantic grounding, we propose a knowledge-graph-driven retrieval-augmented generation method, designed to inject precise physical and logical anchors into the SSR using the IKG as a structural prior.
+3.4.1. Graph-structure-aware semantic retrieval
+For any non-empty field s in the SSR, we utilize a pre-trained Transformer encoder to transform it into a query vector representation 𝐪𝑠
+. Simultaneously, all candidate nodes 𝑣∈𝑉
+ in the IKG are pre-encoded to obtain node vectors 𝐤𝑣
+. The retrieval process measures semantic similarity by calculating the cosine similarity between the query vector and the candidate node vectors:
+(3)
+sin⁡(𝐪𝑠,𝐤𝑣)=
+𝐪𝑠·𝐤𝑣
+∥𝐪𝑠∥2⁢∥𝐤𝑣∥2
+Considering the high overlap of tactical action concepts in the semantic space, a single retrieval result is highly susceptible to errors caused by minor judgmental deviations of the model. Therefore, for the action field 𝑠𝐴
+, the system selects the top-k nodes with the highest similarity to construct the candidate set 𝐶𝐴
+. Conversely, for the parameter and condition fields, which are relatively independent in semantics, the node with the maximum similarity score is directly selected as the logical anchor.
+Building upon this, the system leverages the inherent topological constraints within the IKG. It treats the retrieved highest-confidence parameter node 𝑝∗
+ and condition node 𝑐∗
+ as logical anchors, and defines the one-hop reachable neighborhood set of an action node a in the graph as 𝑁⁡(𝑎)
+.
+This process traverses all action nodes in the initial candidate set 𝐶𝐴
+ to strictly verify whether their graph neighborhoods contain the activated anchors. For action nodes that cannot topologically support the corresponding parameters or conditions, the system determines that a logical defect exists and eliminates them directly. The final retained high-confidence action candidate set 𝐶′
+𝐴
+ can be formalized as:
+(4)
+𝐶′
+𝐴={𝑎∈𝐶𝐴|𝑝∗∈𝒩⁡(𝑎)∧𝑐∗∈𝒩⁡(𝑎)}
+As illustrated in Fig. 4, through this cascaded mechanism integrating dense retrieval with subsequent structural pruning, the system ensures that the retained tactical instructions not only possess semantic relevance but also strictly satisfy the physical regulations of the tactical framework.
+Download: Download high-res image (396KB)
+Download: Download full-size image
+
+Fig. 4. Example of the knowledge-graph-driven retrieval process.
+
+3.4.2. Instruction generation
+After obtaining standardized action definitions and parameter constraints, the system guides the LLM within a strict tactical logical constraint boundary to transform unstructured intents into executable machine instructions. To suppress the risk of hallucination and ensure the rigor of tactical logic, the system constructs a prompt engineering pipeline based on the retrieved information structure.
+As illustrated in Fig. 5, the prompt engineering pipeline is structured around four integrated modules. The intent context preserves the original natural language command alongside its parsed dependency structure, effectively preventing semantic drift during the transformation. Building upon this foundation, the retrieved knowledge module injects standard action primitives and physical boundary conditions recalled via semantic retrieval, providing the factual basis for parameter population. Since tactical command issuance is deeply intertwined with real-time dynamics, the environmental awareness of the UAVs is translated into natural language and embedded within the status prompt. To guarantee structural compliance, the output constraint module strictly dictates the standard schema, thereby bounding the model's generation space.
+Download: Download high-res image (230KB)
+Download: Download full-size image
+
+Fig. 5. Prompt engineering architecture for tactical instruction generation.
+
+The aforementioned multi-source information prompt engineering collectively constitutes the logical constraint boundary ℬ
+ for tactical instruction generation. Under this constraint, the system transforms the instruction generation task into a closed-domain slot-filling and validation process. The LLM performs controlled reasoning based on the boundary ℬ
+ to generate the initial instruction sequence 
+̂
+𝑆
+, which can be formalized as:
+(5)
+̂
+𝑆
+=LLM⁡(𝒫|ℬ)
+where 𝒫
+ represents the structured prompt embedded with multi-source knowledge. This slot-filling process yields the initial instruction sequence 𝐼0
+.
+3.5. Safety validation and conflict resolution
+The initial instruction sequence 𝐼0
+ produced by the slot-filling process may still carry errors introduced by LLM decoding. To guarantee operational reliability before dispatch, we introduce additional validation mechanisms targeting instruction content validity, multi-instruction conflicts, and conditional instruction lifecycle.
+Before an instruction sequence is transmitted, it must pass through multiple sequential verification layers. The format check verifies structural compliance with the required JSON schema; the semantic check confirms that the action identifier exists in the IKG and that its arguments match the expected parameter topology; the physical constraint check ensures that all parameter values including altitude, speed, mission time, and drone identifier fall within their predefined admissible ranges; and the consistency check detects conflicts among concurrent instructions, such as a single entity receiving contradictory actions.
+If a safety violation is detected during these verification gates, the framework activates a reflective correction mechanism [33]. The specific reasons for the violation are injected back into the context as negative feedback, enabling secondary logical reasoning and parameter rectification until the instruction passes all safety checks. Should self-correction fail, the command is transferred to the ground station and the operator is immediately alerted to intervene before transmission.
+The above checks operate at the ground control station before transmission. An additional pre-actuation flight-envelope validation runs onboard the UAV, verifying real-time altitude, airspeed, and attitude constraints against the instruction parameters before execution. Together, these stages ensure that every instruction reaching the UAV has been verified.
+4. Experimental results and analysis
+To comprehensively verify the effectiveness and reliability of the PKEG framework in generating tactical instructions for UAV swarms, this section designs a hierarchical experimental system. Based on multi-grained samples constructed from a tactical instruction dataset, the experiments first conduct a quantitative comparative analysis between PKEG and mainstream LLM baselines across three dimensions: retrieval performance, generation performance, and robustness. Next, utilizing a unified evaluation architecture encompassing both simulation and physical flight tests, the framework's tactical closed-loop capability and physical reliability are systematically evaluated through both AFSIM wargaming and real-world field tests.
+4.1. Performance evaluation of PKEG instruction generation
+This section comprehensively evaluates the performance of the PKEG framework in tactical instruction transformation tasks by comparing it with mainstream LLM generation paradigms. All experiments in this study are locally deployed on an edge computing platform equipped with a single NVIDIA RTX 4090 GPU. Considering that tactical instruction transformation primarily relies on rigorous logical reasoning and strict rule adherence, with relatively low requirements for the breadth of open-domain encyclopedic knowledge, we select the mixture-of-experts model Qwen3-30B-A3B(Int4), which operates near the computational and memory limits of a single GPU, alongside the lightweight dense model Qwen3-8B(Int4) from the same series [34] as the experimental baselines.
+To cover full-dimensional tactical scenarios, we construct an evaluation dataset drawing upon multi-source tactical materials including official military manuals, expert consultations from aerospace manufacturers, and simulation-based operational logs. Each instruction undergoes syntactic decomposition that maps entity, action, parameter, and condition components to subject, predicate, object/adjunct, and subordinate clause roles, respectively. A data-to-text (D2T) strategy is employed to generate diverse natural language variants: starting from structured tuples of entity, action, parameter, and condition, an LLM produces multiple paraphrased utterances under controlled prompt constraints, which are then manually verified and corrected. All samples are manually annotated with their corresponding structured JSON following the formal schema defined in Section 2, with each annotation cross-checked by at least one additional author to ensure consistency. The resulting evaluation set comprises 500 natural language instructions categorized into five subsets based on logical complexity: atomic instructions, multi-turn instructions, fuzzy instructions, spoken instructions, and composite instructions. The definition and a representative example for each category are provided in Table 1.
+
+Table 1. Overview of the tactical instruction evaluation dataset.
+
+Category	Count	Avg. Intents	Description & Example
+Atomic	100	1.00	Standard instructions with a single action and explicit parameters. e.g., "UAV 1, ascend to 500 m altitude".
+Multi-turn	100	3.02	Instruction sets containing multiple parallel or sequential actions. e.g., "UAV 1, reconnoiter Zone A; UAV 2, maintain hover".
+Fuzzy	100	1.42	Non-standard expressions with ambiguous references or implicit parameters. e.g., "UAV 1, fly faster, stay away from the no-fly zone".
+Spoken	100	1.22	Battlefield spoken expressions featuring inversions, pauses, or redundant information. e.g., "Danger present, everyone get back here quickly".
+Composite	100	3.26	High-order instructions containing complex logical dependencies. e.g., "UAV 1, if enemy radar activation is detected, immediately descend to 100 m for low-altitude penetration".
+4.1.1. Retrieval performance evaluation
+In the RAG framework, the prerequisite for accurate output is the ability to precisely retrieve operational specifications from unstructured tactical knowledge bases. The experiments employ the BGE-M3 model, which supports multi-grained semantic alignment, as the retrieval engine. While retrieving simple instructions is generally straightforward, commanders in real-world battlefield environments are more inclined to issue complex texts containing multiple dependency relations.
+When handling complex tasks, the Vanilla RAG [28] paradigm typically retrieves long sentences containing multiple logic layers as a single query vector, which inevitably leads to semantic drift within the high-dimensional vector space. We selected fuzzy, multi-turn, and composite instructions from the evaluation set to independently assess the retrieval performance under complex texts, with the results shown in Fig. 6. It can be observed that this non-decoupled, coarse-grained matching causes the complete recall rate of Vanilla RAG to be extremely low within a smaller top-k range when processing multi-intent complex texts. Particularly in multi-turn and composite instruction scenarios, a single query vector struggles to simultaneously accommodate multiple intents within the text. Instruction semantic features dilute each other, affecting retrieval ranking. To prevent knowledge omission as intents increase, Vanilla RAG must increase the recall quantity k. This inability to perform adaptive recall introduces a massive amount of redundant text.
+Download: Download high-res image (248KB)
+Download: Download full-size image
+
+Fig. 6. Comparison of complete recall rates under different types of instructions.
+
+In contrast, the proposed PKEG framework introduces a dependency parsing module in the pre-retrieval stage. Following intent decoupling, complex semantic long sentences are decomposed into atomic units with distinct features, rendering the system's retrieval performance independent of the number of intents contained in the input text. Experimental data demonstrate that when processing multi-turn and composite instructions, PKEG achieves high recall rates of 96.0% and 95.0% at the Top-2 stage, respectively. When handling fuzzy instructions, its performance consistently outperforms the baseline model across all retrieval depths and rapidly reaches saturation at the Top-3 stage, achieving a nearly 100.0% complete recall. This indicates that relying solely on the representational capacity of underlying vector models is insufficient for handling long-tail tactical texts.
+4.1.2. Performance comparison of instruction generation
+To comprehensively verify the superiority of the PKEG framework in instruction generation tasks, in addition to Vanilla RAG, the experiments select the following two mainstream LLM generation paradigms as comparative baselines:
+(1)
+Long-Context End-to-End Generation: Utilizing the ultra-long context window and inherent reasoning capabilities of LLMs, this paradigm leverages the in-context learning mechanism to embed the complete tactical instruction knowledge graph and generation rules entirely into the system prompt, directly driving the model to generate standard instruction texts [26].
+(2)
+Instruction Tuning: Adopting the Low-Rank Adaptation (LoRA) method [35], this paradigm fine-tunes a general LLM on a small set of training samples. By internalizing external tactical rules into the implicit parameter weights of the model, it achieves a direct transformation from natural language to standard instructions.
+Table 2 presents the detailed comparison results of PKEG and the three baseline methods in terms of parsing accuracy and inference latency. The parsing accuracy is evaluated using a strict exact-match criterion, where an instruction is considered correct only when the entity, action, parameters, and conditions all exactly match the ground truth annotation. The results indicate that PKEG has a clear advantage in adapting to complex instructions. Although Vanilla RAG achieves faster inference speeds and comparable accuracy on atomic, fuzzy, and spoken instructions, it struggles with multi-turn and composite instructions, with a noticeable drop in accuracy under the Qwen3-30B model.
+
+Table 2. Comparison of instruction generation performance.
+
+Model	Method	Metric	Atomic	Multi-turn	Fuzzy	Spoken	Composite	Overall
+Qwen3-8B	Long-Context E2E	Acc/%	86.0	56.0	61.0	52.0	39.0	58.8
+Lat/s	3.15	4.21	3.98	3.25	5.20	3.96
+Instruction Tuning	Acc/%	94.0	38.0	65.0	51.0	26.0	54.8
+Lat/s	0.92	1.84	1.25	1.05	2.14	1.44
+Vanilla RAG	Acc/%	98.0	61.0	73.0	92.0	45.0	73.8
+Lat/s	1.28	3.24	2.35	1.51	3.41	2.36
+PKEG (Ours)	Acc/%	100.0	82.0	91.0	98.0	69.0	88.0
+Lat/s	1.57	3.83	2.78	1.87	3.93	2.80
+Qwen3-30B	Long-Context E2E	Acc/%	100.0	89.0	83.0	95.0	78.0	89.0
+Lat/s	3.49	4.64	4.40	3.67	5.84	4.41
+Vanilla RAG	Acc/%	100.0	82.0	85.0	98.0	76.0	88.2
+Lat/s	1.32	3.44	2.11	1.62	3.94	2.49
+PKEG (Ours)	Acc/%	100.0	97.0	99.0	100.0	96.0	98.4
+Lat/s	1.64	4.02	2.50	1.94	4.46	2.91
+The Long-Context End-to-End generation shows certain adaptability to different instructions, but its high inference latency is a major drawback for practical applications. Meanwhile, because this method relies entirely on the model's internal attention mechanism to extract information from massive contexts without explicit constraints, it still suffers from severe parameter hallucination issues.
+As for the instruction tuning method, despite offering the fastest inference speed, it imposes extremely strict requirements on the quality and scale of training samples. Under limited tactical instruction data, the model is prone to overfitting, leading to lower overall accuracy. This also reflects the method's lack of usability and generalization capability in low-resource scenarios.
+Although PKEG introduces an additional reasoning layer, resulting in an inference speed slightly lower than that of Vanilla RAG, it maintains high semantic parsing accuracy across different types of inputs. Through explicit graph topology pruning, PKEG effectively mitigates the issues of entity mismatch and logic drop. Compared to Vanilla RAG, the 30B and 8B models under the PKEG framework achieve relative improvements in overall average accuracy of 11.6% and 19.2%, respectively. Experimental results demonstrate that the framework maintains good real-time performance while ensuring high reliability, achieving a solid balance between accuracy and speed.
+We further break down the parsing accuracy by semantic component to examine how each field contributes to the overall results. Entity Mismatch represents cases where the executing entity or action type is incorrectly identified. Param Hallucination captures errors in parameter field population. Logic Drop corresponds to missing or incorrect conditional triggers. Instructions without parameter or condition fields are excluded from the corresponding denominator. Fig. 7 visually compares the component-level accuracies derived from these error rates. Without structured segmentation of complex logic, Vanilla RAG produces up to 11.8% parameter hallucination and 10.7% logic drop, while PKEG effectively suppresses different types of generation errors, achieving superior accuracy across all components and model scales, demonstrating its advantage in structured instruction generation.
+Download: Download high-res image (658KB)
+Download: Download full-size image
+
+Fig. 7. Comprehensive performance evaluation across different model scales. (a) The multi-dimensional capability radar maps for 8B and 30B models; (b) The detailed error distribution comparison across three primary hallucination types.
+
+4.1.3. Ablation study
+To evaluate the individual contribution of each component within PKEG, we systematically implemented three system variants by deactivating Intent Decoupling (w/o ID), Topology Pruning (w/o TP), and Reflective Validation (w/o RV), respectively. The component-level and overall parsing accuracies evaluated across the dataset are summarized in Table 3, where the performance degradation relative to the complete PKEG framework is indicated in parentheses.
+
+Table 3. Ablation analysis of PKEG framework components.
+
+Model/Configuration	Entity Acc./%	Param Acc./%	Cond Acc./%	Overall Acc./%
+Qwen3-8B	w/o ID	91.2 (−5.8)	85.1 (−7.4)	91.4 (−7.1)	80.2 (−7.8)
+w/o TP	96.2 (−0.8)	86.7 (−5.8)	88.7 (−9.8)	81.6 (−6.4)
+w/o RV	96.6 (−0.4)	88.6 (−3.9)	95.7 (−2.8)	83.6 (−4.4)
+Qwen3-30B	w/o ID	95.9 (−3.6)	91.8 (−7.3)	92.7 (−7.1)	91.4 (−7.0)
+w/o TP	98.2 (−1.3)	96.3 (−2.8)	96.1 (−3.7)	96.2 (−2.2)
+w/o RV	99.1 (−0.4)	97.3 (−1.8)	98.8 (−1.0)	96.8 (−1.6)
+The empirical results, summarized in Table 3, demonstrate the positive impact of the progressive knowledge-enhanced framework on tactical instruction generation. Bypassing the intent decoupling layer leads to a pronounced performance degradation across both model scales, as full-text embeddings suffer from semantic dilution and parameter mixing when processing multi-intent commands as monolithic inputs. Within this progressive generation pipeline, intent decoupling advances the structural parsing accuracy of highly composite utterances by enabling dense semantic pre-extraction. Meanwhile, topology pruning increases entity identification accuracy by enforcing structural graph constraints, while reflective validation primarily suppresses parameter-level hallucinations.
+4.2. Robustness evaluation of complex instructions
+In real-world battlefield command and control, the instruction system often faces non-ideal input environments and dynamic tactical requirements. To verify the robustness of the PKEG framework under extreme conditions, we designed stress tests specifically targeting instruction length and battlefield environmental noise to quantitatively evaluate the model's performance boundaries under these specific dimensions.
+In practical command and control scenarios, commanders often tend to issue long sentences containing multiple tactical intents in a single interaction. To evaluate the models' parsing capabilities for such complex logic, we conducted a stress test by continuously increasing the number of intents within the natural language input. As shown in Fig. 8(a), as the number of intents increases, the accuracy of Long-Context End-to-End generation and Vanilla RAG exhibits a clear, accelerated degradation trend. Within the conventional range of fewer intents, the baseline models can maintain their performance; however, when the number of intents reaches eight, due to attention dispersion and feature dilution caused by long sequences, the accuracy of the Long-Context E2E and Vanilla RAG models drops sharply to 33.5% and 40.2%, respectively, struggling to maintain the logical consistency of long texts. In contrast, the PKEG framework utilizes a dependency parsing module to decouple complex sentences into independent atomic units for processing. As a result, in the extreme scenario containing eight intents, PKEG still maintains a high accuracy of 88.2%, significantly outperforming the baseline models and demonstrating its superior stability when handling multi-intent complex instructions.
+Download: Download high-res image (339KB)
+Download: Download full-size image
+
+Fig. 8. Robustness evaluation of parsing accuracy under different stress conditions. (a) Performance against an increasing number of composite intents; (b) Performance under varying ASR noise levels.
+
+To simulate Automatic Speech Recognition (ASR) errors caused by accents and background noise in actual battlefields, this paper further evaluates the noise-resistant robustness of instruction generation. Inspired by the LAUG toolkit [36], we employed a homophone and near-synonym replacement strategy based on pronunciation similarity to artificially inject controllable text perturbations. Based on the Word Error Rate (WER), we established three gradients of battlefield acoustic environments: light interference with a 10% WER, moderate interference with a 20% WER, and severe interference with a 30% WER, to comprehensively probe the noise resistance boundaries of each model under extreme input conditions.
+The stress test results illustrated in Fig. 8(b) indicate that PKEG can leverage the neighborhood co-occurrence relationships of actions and parameters within the knowledge graph for highly effective semantic error correction.
+Notably, after introducing natural language perturbations, the Long-Context End-to-End generation, benefiting from the global attention mechanism inherent in large models, exhibits better error tolerance to local word replacements than Vanilla RAG, which heavily relies on precise keyword matching. Under the extreme environment of severe interference with a 30% WER, Vanilla RAG's accuracy decreases to 38.2% due to retrieval failures, while the E2E model maintains 53.1%. In comparison, PKEG demonstrates the strongest noise resistance, securing its parsing accuracy at 65.4%. This fully substantiates the irreplaceable advantage of explicit graph knowledge injection and intent decoupling over pure data-driven methods or simple text retrieval mechanisms when coping with high-noise practical combat scenarios.
+4.3. System deployment and tactical validation
+To comprehensively evaluate the tactical effectiveness and physical reliability of the proposed framework, we designed a unified evaluation architecture encompassing both simulation and physical flight tests, as illustrated in Fig. 9. Capitalizing on the strict decoupling between the PKEG framework's JSON instruction generation and the underlying flight execution, we established two testing environments driven by the identical command set. The standardized JSON payloads can be routed via a UDP distribution network to either the AFSIM simulation engine for high-complexity tactical evaluation, or directly injected into the custom onboard Command and Control (C2) boxes for real-world physical verification, requiring zero modification to the core algorithmic pipeline.
+Download: Download high-res image (423KB)
+Download: Download full-size image
+
+Fig. 9. The unified evaluation architecture. The unstructured voice commands are parsed into standardized JSON payloads by the PKEG framework at the GCS, and subsequently routed to either the AFSIM engine for tactical wargaming or the physical VTOL swarm for hardware-in-the-loop validation.
+
+4.3.1. Tactical simulation
+To verify the command effectiveness of the PKEG framework in dynamic battlefield environments, practical wargaming in red-blue adversarial scenarios was conducted utilizing AFSIM, a mission-level constructive simulation environment widely utilized for aerospace and defense. After the operator's tactical voice commands are decoded into standardized JSON control instructions, they are synchronously distributed to the various simulated UAV nodes in the AFSIM platform.
+PKEG possesses strong multi-entity intent decoupling capabilities, providing core technical support for the realization of a one-to-many manned/unmanned collaborative tactical system. To verify this capability, a representative set of formation scheduling scenarios was designed. The initial situation was set as a patrol formation of 9 UAVs. When the Airborne Warning and Control System (AWACS) detected approaching enemy targets, the operator issued high-density coordinated maneuver instructions: "UAVs 1 and 2 move forward 15° East by North, UAVs 3-5 head directly to the suspicious target location, UAVs 6-8 maneuver forward 10° East by South", followed by correction instructions: "UAV 7 turn right 70°, UAV 9 turn right 30°". The simulated trajectory execution results are shown in Fig. 10.
+Download: Download high-res image (393KB)
+Download: Download full-size image
+
+Fig. 10. Coordinated formation interception scenario. (a) Formation advance; (b) Dynamic interception.
+
+For these coordinated multi-UAV maneuvers, the graphical interaction mode of traditional Ground Control Stations exhibits operational latency. Operators must execute cumbersome serial programming operations: individually selecting node entities, framing routes, and confirming issuance. With the introduction of the PKEG framework, highly composite tactical intents are integrated into a single natural language instruction input. In the simulation wargaming, the Qwen3-30B-based PKEG module synchronously completed intent decoupling, spatial parameter anchoring, and concurrent instruction issuance for all 9 entities with a system response time of only 3 s. Simulations indicate that this architecture effectively breaks the serial processing bottleneck of traditional point-and-click interactions, ensuring that the swarm can accomplish formation reorganization with rapid cooperative response when facing sudden threats.
+Additionally, PKEG's precise comprehension of complex conditional logic can substantially shorten the OODA loop cycle in combat missions. In the cooperative strike wargaming shown in Fig. 11, the operator issued a conditional instruction containing cross-temporal logic: "As soon as any UAV detects the target, UAV 2 immediately proceeds to strike".
+Download: Download high-res image (300KB)
+Download: Download full-size image
+
+Fig. 11. Cooperative strike scenario. (a) Advance to search; (b) Dynamic interception.
+
+Compared to the traditional Human-in-the-loop system, which transmits situational data back and initiates the complete OODA loop only after a target is detected, the PKEG framework shifts the paradigm towards edge engagement autonomy. By injecting engagement rules into the swarm network in advance, the execution mode of the unmanned platforms shifts from passively waiting for commands to autonomous condition evaluation. The system translates the detection condition into an edge-side situational listener and sets the strike task as a suspended action. When the target is exposed at T = 300 s, the reconnaissance node directly shares the underlying parameters via the inter-aircraft tactical data link, instantly activating the fire interception action of UAV 2. As demonstrated by the timing comparison in Fig. 12, by front-loading command authorization, this mechanism substantially compresses the actual tactical closure time, endowing the unmanned platforms with machine-closed-loop engagement capabilities under specific authorizations.
+Download: Download high-res image (455KB)
+Download: Download full-size image
+
+Fig. 12. Comparison of OODA tactical swimlanes for cooperative strike.
+
+4.3.2. Real-world flight tests
+To validate the engineering feasibility and hardware execution reliability of the proposed framework, physical field tests were conducted employing multiple VTOL UAVs. As dictated by the physical branch of our architecture, the field setup comprises a Ground Control Station (GCS) equipped with an NVIDIA RTX 4090 hosting the PKEG engine, an Ad-Hoc network for wireless data transmission, and the physical UAVs.
+A custom onboard C2 box was deployed on each VTOL UAV to bridge the semantic gap between high-level tactical intents and low-level aerodynamic control. Built around an RK3588 processor, this companion module integrates YOLOv5 for real-time target recognition, coupled with local route planning and adaptive PID control algorithms. Functioning as a hardware-decoupled execution node, it parses the standardized JSON payloads received from the network and structurally translates them into high-frequency MAVLink messages that the underlying flight controller can natively execute.
+Considering the transition dynamics of VTOL fixed-wing UAVs, fixed-wing commands are gated by a strict minimum altitude threshold. The hover primitive is assigned the highest dispatch priority across all instruction levels, providing the operator with a rapid intervention channel under any abnormal condition. For swarm cooperative safety, an altitude layer separation mechanism is introduced during instruction generation, assigning differentiated target altitudes to individual nodes to avoid trajectory intersection on the same horizontal plane.
+To establish the statistical significance of our validations, the physical tests were rigorously structured. The field swarm consisted of up to 3 VTOL UAVs, and all flight trials were executed in natural outdoor environments. Over a series of 20 consecutive field trials, the PKEG engine processed and dispatched over 100 distinct semantic commands, targeting common UAV usage scenarios that encompass basic atomic commands, multi-entity coordination, and conditional triggers. These commands comprehensively covered the entire action space defined in Section 2, spanning 27 instruction types across operational primitives, tactical maneuvers, and mission-level tasks. Across all 20 sorties, the standardized payloads were successfully parsed and converted into MAVLink injection commands without observable packet loss or logical anomalies, achieving a 100% physical actuation success rate.
+The latency breakdown in Table 4 exhibits a distribution consistent with instruction complexity. Basic atomic commands achieve an average parsing and dispatch time of 1.62 s, while the peak latency reaches approximately 5.50 s, occurring exclusively in the most complex conditional trigger scenarios where the LLM performs deep logical reasoning and cross-clause parameter grounding. For high-level tactical command and control, this upper bound remains well within acceptable operational thresholds.
+
+Table 4. End-to-end system latency breakdown in real-world deployment.
+
+Processing Stage	Hardware/Software Entity	Avg. Latency/s	max
+Intent Generation	atomic	GCS (RTX 4090/Qwen3-30B)	1.62	1.89
+multi-entity	2.85	4.81
+conditional	4.02	5.26
+Network Routing	Network Datalink	<0.10	-
+Onboard Parsing	Custom C2 Box to MAVLink	<0.10	-
+Total Response	End-to-End Pipeline	∼2.5	∼5.5
+The precise intent decoupling and execution of composite commands are illustrated in Fig. 13. When the operator issued an unstructured voice command requiring a coordinated multi-UAV takeoff followed by a conditional area reconnaissance task, the PKEG framework accurately structured the logical sequence. As demonstrated in the field test, the physical multi-UAV team progressed from initial runway deployment to a synchronized takeoff. The designated UAV then advanced to the mission area and successfully identified the ground target, executing the multi-stage maneuvers exactly as intended. These field results validate the framework's reliability and deterministic safety. Crucially, by strictly decoupling the high-level semantic intent from the low-level kinematic execution, this architecture is inherently platform-agnostic. Although physically validated on a small-scale VTOL formation, the framework can be readily generalized to accommodate heterogeneous unmanned platforms, including multi-rotors, fixed-wing UAVs, and even unmanned ground vehicles, provided that they support standard communication protocols, requiring zero structural modification to the core PKEG generation pipeline.
+Download: Download high-res image (1006KB)
+Download: Download full-size image
+
+Fig. 13. Execution mapping of a composite tactical command in physical multi-UAV flight tests. The unstructured voice input is parsed into structured JSON payloads to drive the multi-stage operation. (a) Runway deployment; (b) Coordinated takeoff; (c) Forward reconnaissance; (d) Target detection.
+
+5. Conclusions
+(1)
+The proposed PKEG framework demonstrates parsing accuracy and noise-resistant robustness significantly superior to traditional retrieval-augmented baselines when processing composite tactical instructions and handling severe interference.
+(2)
+AFSIM tactical wargaming confirms that this architecture effectively compresses the OODA loop cycle and enables efficient collaborative command of multi-UAV swarms by a single operator.
+(3)
+Real-world field tests employing multiple VTOL UAVs establish a robust, platform-agnostic paradigm for heterogeneous unmanned systems, achieving highly reliable hardware actuation with an average end-to-end response latency of approximately 2.5 s.
+(4)
+Future work will focus on airborne edge deployment via a cloud-edge collaborative paradigm to lower terminal computing requirements and reduce reliance on high-bandwidth datalinks.
+CRediT authorship contribution statement
+Chang Tan: Writing – review & editing, Writing – original draft, Visualization, Software, Resources, Project administration, Methodology, Formal analysis. Bohan Li: Writing – original draft, Visualization, Software. Zihao Wei: Writing – review & editing, Software. Guanglin Ma: Validation, Resources, Data curation. Weiyu Zhu: Writing – review & editing, Writing – original draft, Validation, Supervision, Formal analysis. Bangchu Zhang: Validation, Resources, Project administration, Funding acquisition, Formal analysis, Data curation, Conceptualization.
+Declaration of competing interest
+The authors declare that they have no known competing financial interests or personal relationships that could have appeared to influence the work reported in this paper.
+Acknowledgement
+This research was funded by the National Natural Science Foundation of China (Grant No. 52202513), Guangdong Basic and Applied Basic Research Foundation (Grant Nos. 2021A1515110797 and 2023A1515010023).
+
+===== FIGURES AND TABLES =====
+Download: Download high-res image (787KB)
+Download: Download full-size image
+
+Fig. 1. Progressive knowledge-enhanced generation framework.
+---FIGTABLE---
+Download: Download high-res image (316KB)
+Download: Download full-size image
+
+Fig. 2. Instruction Knowledge Graph, comprising a total of 45 action primitives, 72 nodes, and 205 edges.
+---FIGTABLE---
+Download: Download high-res image (308KB)
+Download: Download full-size image
+
+Fig. 3. Prompt engineering for instruction intent parsing.
+---FIGTABLE---
+Download: Download high-res image (396KB)
+Download: Download full-size image
+
+Fig. 4. Example of the knowledge-graph-driven retrieval process.
+---FIGTABLE---
+Download: Download high-res image (230KB)
+Download: Download full-size image
+
+Fig. 5. Prompt engineering architecture for tactical instruction generation.
+---FIGTABLE---
+Download: Download high-res image (248KB)
+Download: Download full-size image
+
+Fig. 6. Comparison of complete recall rates under different types of instructions.
+---FIGTABLE---
+Download: Download high-res image (658KB)
+Download: Download full-size image
+
+Fig. 7. Comprehensive performance evaluation across different model scales. (a) The multi-dimensional capability radar maps for 8B and 30B models; (b) The detailed error distribution comparison across three primary hallucination types.
+---FIGTABLE---
+Download: Download high-res image (339KB)
+Download: Download full-size image
+
+Fig. 8. Robustness evaluation of parsing accuracy under different stress conditions. (a) Performance against an increasing number of composite intents; (b) Performance under varying ASR noise levels.
+---FIGTABLE---
+Download: Download high-res image (423KB)
+Download: Download full-size image
+
+Fig. 9. The unified evaluation architecture. The unstructured voice commands are parsed into standardized JSON payloads by the PKEG framework at the GCS, and subsequently routed to either the AFSIM engine for tactical wargaming or the physical VTOL swarm for hardware-in-the-loop validation.
+---FIGTABLE---
+Download: Download high-res image (393KB)
+Download: Download full-size image
+
+Fig. 10. Coordinated formation interception scenario. (a) Formation advance; (b) Dynamic interception.
+---FIGTABLE---
+Download: Download high-res image (300KB)
+Download: Download full-size image
+
+Fig. 11. Cooperative strike scenario. (a) Advance to search; (b) Dynamic interception.
+---FIGTABLE---
+Download: Download high-res image (455KB)
+Download: Download full-size image
+
+Fig. 12. Comparison of OODA tactical swimlanes for cooperative strike.
+---FIGTABLE---
+Download: Download high-res image (1006KB)
+Download: Download full-size image
+
+Fig. 13. Execution mapping of a composite tactical command in physical multi-UAV flight tests. The unstructured voice input is parsed into structured JSON payloads to drive the multi-stage operation. (a) Runway deployment; (b) Coordinated takeoff; (c) Forward reconnaissance; (d) Target detection.

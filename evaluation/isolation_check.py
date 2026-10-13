@@ -28,7 +28,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 
 TRAIN_FILES = ['datasets/dataset_phased_v5.jsonl', 'datasets/dataset_original_109.jsonl',
-               'datasets/dataset.jsonl']
+               'datasets/dataset.jsonl', 'datasets/dataset_v6.jsonl',
+               'datasets/dataset_v6lc.jsonl']
 TESTSET_FILES = ['basic_240.jsonl', 'phase_200.jsonl', 'robust_160.jsonl']
 
 # 训练中性指令池（gen_testset.py 白纸黑字列出的 33 条，允许作为相位条目主体）

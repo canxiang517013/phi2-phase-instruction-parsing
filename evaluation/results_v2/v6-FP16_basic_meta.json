@@ -1,0 +1,10 @@
+{
+ "label": "v6-FP16",
+ "model": "phi2-v6-fp16.gguf",
+ "testset": "basic",
+ "n": 240,
+ "vram_mb": 6032,
+ "wall_s": 794.4,
+ "note": "v6 z-defix rerun, seed fixed",
+ "ts": "2026-10-13 09:19:12"
+}

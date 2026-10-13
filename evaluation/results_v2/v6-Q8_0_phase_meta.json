@@ -1,0 +1,10 @@
+{
+ "label": "v6-Q8_0",
+ "model": "phi2-v6-q8_0.gguf",
+ "testset": "phase",
+ "n": 200,
+ "vram_mb": 3863,
+ "wall_s": 178.4,
+ "note": "v6 z-defix rerun, seed fixed",
+ "ts": "2026-10-13 09:47:16"
+}

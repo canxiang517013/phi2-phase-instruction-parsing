@@ -92,18 +92,21 @@ def cmd_subject(cmd):
 # ---- 相位 → target 的规则映射（与训练数据 100% 同源） ----
 def phase_target(label):
     head = label.split('@')[0]
+
+    def _nums(seg):
+        return [float(v) for v in seg.split(',')]
     if head == 'ASSEMBLE':
-        x, y = eval(label[len('ASSEMBLE@('):-1])
+        x, y = _nums(label[len('ASSEMBLE@('):-1])
         return [float(x), float(y), 5.0]
     if head == 'HOLD':
-        x, y, z = eval(label[len('HOLD@('):-1])
+        x, y, z = _nums(label[len('HOLD@('):-1])
         return [float(x), float(y), float(z)]
     if head == 'OBSTACLE_AVOID':
         _, side, n = label.split('@')
         n = float(n)
         return [-n if side == 'left' else n, 0.0, 15.0]
     if head == 'RECON':
-        x, y = eval(label[len('RECON@('):-1])
+        x, y = _nums(label[len('RECON@('):-1])
         return [float(x), float(y), 15.0]
     if head == 'RECONFIGURE':
         return [15.0, 15.0, 8.0]
