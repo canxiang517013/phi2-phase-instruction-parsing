@@ -24,3 +24,8 @@ __pycache__/
 # phase-aware 复现产物：checkpoint 与 tensorboard 不入库（磁盘保留，可由脚本重训）
 *.pth
 tensorboard/
+
+# v6 训练/合并中间产物与工具状态（可由 adapter+基座重建）
+phi2-v6-3060/
+phi2-v6-merged/
+.mimosa/
