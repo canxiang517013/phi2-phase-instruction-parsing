@@ -57,3 +57,21 @@ create_wsl_package.py
 
 # Ollama 安装包
 OllamaSetup.exe
+
+# ===== 2026-10-15 训练服务器接入新增 =====
+# 策略变更：训练产出的 LoRA 权重现统一入库到 adapters/<task>_<version>/
+# （旧的 phi2-*-adapter/ 排除规则保留，仅为兼容历史目录名）
+adapters/*_smoke/
+
+# 训练运行产物（checkpoint/日志可再生；里程碑记录归档到 docs/training_runs/）
+runs/
+
+# 实验室训练机离线安装包（2.6GB，不入库）
+wheels/
+
+# ZCode 工具自动生成的目录（非项目代码）
+zcode-home/
+zcode-migration-backup/
+
+# 训练迁移包原件（内容已全部入库）
+*.tar.gz

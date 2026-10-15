@@ -1,16 +1,21 @@
-# Phi-2 QLoRA 实验 - 依赖清单
-# 安装: pip install -r requirements.txt
+# Phi-2 QLoRA 训练依赖
+# 2026-10-15 在实验室训练机（RTX 4090 / conda env syc_phi2 / Python 3.11）实测锁定版本组合。
+# 安装顺序：先装 wheels/ 内的本地 wheel（torch 及 CUDA 库，网络慢时用 scripts/pdl.py 并行下载），
+# 再 pip install -r requirements.txt。
 #
-# 注: torch 建议按本机 CUDA 版本从官方索引安装（本项目已在 .venv 中预装 torch 2.13.0）
+# ⚠ 版本组合有硬约束（互相冲突，勿单独升级）：
+#   transformers 5.x 需要 torch>=2.6（与 cu121 轮子冲突）→ 锁 4.57.6
+#   datasets 5.x 需要 huggingface-hub>=1.31（与 transformers 4.57 冲突）→ 锁 4.8.5
+# 注：Windows/WSL 侧 .venv 若为 torch 2.13 + 更新栈，两套环境各自独立，互不影响。
 
 # --- 微调阶段 ---
-torch>=2.1
-transformers>=4.45
-peft>=0.11
-trl>=0.11
-bitsandbytes>=0.43
-accelerate>=0.30
-datasets>=2.20
+torch==2.5.1+cu121        # cu121 轮子来自 pytorch-wheels/cu121 镜像（阿里云）
+transformers==4.57.6
+trl==1.9.2                # 训练脚本按此版 API 编写（SFTConfig.max_length / processing_class）
+peft==0.21.2
+bitsandbytes==0.50.2
+accelerate==1.15.0
+datasets==4.8.5
 
 # --- 模型下载（huggingface.co 不可达时用 ModelScope）---
 modelscope>=1.18

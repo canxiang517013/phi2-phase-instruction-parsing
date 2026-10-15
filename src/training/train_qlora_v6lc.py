@@ -29,12 +29,19 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 # ----------------------------------------------------------------------
 # 路径配置
 # ----------------------------------------------------------------------
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+import os as _os
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # 仓库根（src/training 上两级）
 MODEL_PATH = os.path.join(BASE_DIR, "models", "phi-2")     # 本地基座模型
 DATA_PATH = os.path.join(BASE_DIR, "datasets", "dataset_v6lc.jsonl")
-OUTPUT_DIR = os.path.join(BASE_DIR, "phi2-v6lc-3060")      # 训练日志/checkpoint
-ADAPTER_DIR = os.path.join(BASE_DIR, "phi2-v6lc-adapter")  # 最终 LoRA 权重
-PEAK_VRAM_FILE = os.path.join(BASE_DIR, "train_peak_vram.txt")
+OUTPUT_DIR = os.path.join(BASE_DIR, "runs", "train_v6lc")  # 训练日志/checkpoint（gitignore）
+ADAPTER_DIR = os.path.join(BASE_DIR, "adapters", "dmpc_v6lc")  # 最终 LoRA 权重（入库）
+PEAK_VRAM_FILE = os.path.join(OUTPUT_DIR, "train_peak_vram.txt")
+
+SMOKE_STEPS = int(_os.environ.get("PHI2_SMOKE", "0"))
+if SMOKE_STEPS:
+    OUTPUT_DIR = os.path.join(BASE_DIR, "runs", "smoke_v6lc")
+    ADAPTER_DIR = os.path.join(BASE_DIR, "adapters", "dmpc_v6lc_smoke")
+    PEAK_VRAM_FILE = os.path.join(OUTPUT_DIR, "train_peak_vram.txt")
 
 
 # ----------------------------------------------------------------------
@@ -208,7 +215,7 @@ sft_config = SFTConfig(
     warmup_ratio=0.05,
     max_grad_norm=0.3,
     # —— 训练步数（演示 200 步；实际可调至 500+）——
-    max_steps=400,
+    max_steps=SMOKE_STEPS or 400,
     # —— 精度 & 检查点 ——
     # 用 bf16 而非 fp16：bf16 无需 GradScaler，避免
     # "_amp_foreach_non_finite_check_and_unscale_cuda not implemented for BFloat16" 报错

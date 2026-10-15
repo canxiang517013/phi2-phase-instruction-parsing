@@ -25,9 +25,9 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # 仓库根（src/training 上两级）
 MODEL_PATH = os.path.join(BASE_DIR, "models", "phi-2")
-ADAPTER_DIR = os.path.join(BASE_DIR, "phi2-dmpc-adapter")
+ADAPTER_DIR = os.path.join(BASE_DIR, "adapters", "dmpc_v5")
 MERGED_DIR = os.path.join(BASE_DIR, "phi2-dmpc-merged")
 FP16_GGUF = os.path.join(BASE_DIR, "phi2-fp16.gguf")
 Q6_GGUF = os.path.join(BASE_DIR, "phi2-dmpc-q6_k.gguf")

@@ -15,7 +15,7 @@ import sys
 import subprocess
 
 MODEL_ID = "microsoft/phi-2"
-LOCAL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "phi-2")
+LOCAL_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "models", "phi-2")  # 仓库根/models/phi-2
 
 # phi-2 完整文件清单，用于完整性校验（来源于 ModelScope 仓库）
 EXPECTED_FILES = [

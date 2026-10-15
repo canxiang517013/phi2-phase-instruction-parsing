@@ -31,7 +31,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parents[2]  # 仓库根
 LLAMA_DIR = BASE_DIR / "llama.cpp"
 GGUF_PATH = BASE_DIR / "phi2-dmpc-q6_k.gguf"
 

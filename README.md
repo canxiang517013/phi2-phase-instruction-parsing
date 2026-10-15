@@ -75,3 +75,18 @@ python analysis/analysis_part1_perseed.py             # 逐项分析（part1-6 �
 ## 记录规范
 
 所有实验遵循 10 月任务书第五节：日期 / git commit / 模型与数据版本 / seed / 配置 / 硬件 / 命令 / 结果路径八要素齐全；失败实验保留（含现象、排查、根因、验证计划）；图表数据均可由脚本从原始 `results.json` 重新生成。复现工作的唯一配置偏差（`llm_timeout` 120→600，本机 LLM 延迟所致）声明于 `phase-aware-repro/results/e1_llm_arms_config.json`。
+
+---
+
+## 实验室训练机工作流（2026-10-15 接入）
+
+实验室服务器（RTX 4090 24GB）**只负责训练，不负责仿真**。分工与流程：
+
+- **环境**：conda env `syc_phi2`（Python 3.11，版本组合见 `requirements.txt` 钉版注释）
+- **基座模型**：`models/phi-2/`（不入库）— 缺失时 `python src/training/download_model.py`（ModelScope 源；网络慢用 `scripts/pdl.py` 并行下载）
+- **训练**：`python src/training/train_qlora.py`（默认 v5 主力数据集）
+  - 冒烟：`PHI2_SMOKE=40 python src/training/train_qlora.py`（产物带 `_smoke` 后缀，不覆盖正式权重）
+- **产物入库**：训练完成 → `git add adapters/ && git commit -m "train: <版本> <说明>" && git push`
+  - 正式权重：`adapters/dmpc_v5/`（本机 2026-10-15 复训件）；`adapters/dmpc_v5_original/`（原机权威件，只读）；`adapters/dmpc_v6lc/`
+  - 里程碑训练记录归档：`docs/training_runs/`
+- **认证安全**：GitHub 凭据仅会话内有效，断开连接自动登出（`~/.bash_logout`）
