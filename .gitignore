@@ -29,3 +29,31 @@ tensorboard/
 phi2-v6-3060/
 phi2-v6-merged/
 .mimosa/
+
+# v2.0 结构清理
+
+# 模型权重与 GGUF 产物（可由 adapter+基座重建）
+*.gguf
+phi2-*-merged/
+phi2-*-3060/
+phi2-*-adapter/
+models/
+
+# 训练/评测中间产物
+benchmark_run.log
+benchmark_matrix_results.csv
+context_compression_results.json
+train_peak_vram.txt
+__pycache__/
+*.pyc
+
+# 散落文献（已归档到 docs/文献精读2026/）
+dt_paper.pdf
+lieq_paper.txt
+
+# 迁移脚本（一次性工具，执行后删除）
+migrate_structure.py
+create_wsl_package.py
+
+# Ollama 安装包
+OllamaSetup.exe
