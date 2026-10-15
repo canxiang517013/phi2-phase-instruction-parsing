@@ -33,6 +33,15 @@ except ImportError:
 DRONE_NAMESPACES = ['/fmu', '/px4_1/fmu', '/px4_2/fmu', '/px4_3/fmu']
 TEAM_MEMBERS = {'red': [0, 1], 'blue': [2, 3]}
 
+# AirSim 世界坐标中的初始位置（与 settings.json 的 X/Y 对应）
+# PX4 LocalPosition 是相对起飞点的局部坐标，需要加偏移转为世界坐标
+DRONE_WORLD_OFFSETS = {
+    0: (0.0, 0.0),     # Red_1 在 AirSim (0, 0)
+    1: (5.0, 0.0),     # Red_2 在 AirSim (5, 0)
+    2: (50.0, 50.0),   # Blue_1 在 AirSim (50, 50)
+    3: (55.0, 50.0),   # Blue_2 在 AirSim (55, 50)
+}
+
 # 对抗参数
 CAPTURE_RADIUS = 15.0
 SAFE_ZONE_CENTER = (80.0, 80.0)
@@ -91,8 +100,14 @@ class AdversarialPhaseGenerator(Node):
     # 位置收集
     # ------------------------------------------------------------------
     def _on_position(self, idx, msg):
-        # PX4 用 NED（x=北，y=东，z=下），转为 ENU 供对抗逻辑使用
-        self._positions[idx] = [msg.y, msg.x, -msg.z]  # ENU
+        # PX4 用 NED（x=北，y=东，z=下），转为 ENU 后加世界坐标偏移
+        local_enu = [msg.y, msg.x, -msg.z]
+        offset = DRONE_WORLD_OFFSETS[idx]
+        self._positions[idx] = [
+            local_enu[0] + offset[0],
+            local_enu[1] + offset[1],
+            local_enu[2],
+        ]
         self._pos_received[idx] = True
 
     def _team_centroid(self, team):

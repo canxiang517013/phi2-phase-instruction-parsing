@@ -29,6 +29,14 @@ SAFE_ZONE_RADIUS = 15.0
 GRACE_PERIOD_S = 10.0       # 对抗开始后宽限期（等所有无人机真正起飞）
 MIN_START_SEPARATION = 20.0 # 红蓝初始最小间距（低于此值视为未就位）
 
+# AirSim 世界坐标偏移（与 phase_generator_adv.py 的 DRONE_WORLD_OFFSETS 一致）
+DRONE_WORLD_OFFSETS = {
+    0: (0.0, 0.0),     # Red_1
+    1: (5.0, 0.0),     # Red_2
+    2: (50.0, 50.0),   # Blue_1
+    3: (55.0, 50.0),   # Blue_2
+}
+
 
 def dist2d(a, b):
     return math.hypot(a[0] - b[0], a[1] - b[1])
@@ -66,8 +74,14 @@ class RefereeNode(Node):
                SAFE_ZONE_CENTER[1], SAFE_ZONE_RADIUS))
 
     def _on_position(self, idx, msg):
-        # NED → ENU 转换
-        self._positions[idx] = [msg.y, msg.x, -msg.z]
+        # NED → ENU + 世界坐标偏移（与 phase_generator_adv 一致）
+        local_enu = [msg.y, msg.x, -msg.z]
+        offset = DRONE_WORLD_OFFSETS[idx]
+        self._positions[idx] = [
+            local_enu[0] + offset[0],
+            local_enu[1] + offset[1],
+            local_enu[2],
+        ]
         self._pos_received[idx] = True
         if self._battle_start is None and all(self._pos_received):
             # 位置有效性检查：蓝队必须在非原点附近（AirSim 布局在 (50,50)）
