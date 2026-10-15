@@ -37,8 +37,15 @@ PHASE_PATTERNS = (
     re.compile(r'^HOLD@\(%s,%s,%s\)$' % (_NUM, _NUM, _NUM)),
     re.compile(r'^RECONFIGURE@(column|circle|grid|wedge|line)$'),
     re.compile(r'^OBSTACLE_AVOID@(?:left|right)@%s$' % _NUM),
-    re.compile(r'^RECON@\(%s,%s\)$' % (_NUM, _NUM),
-               ),
+    re.compile(r'^RECON@\(%s,%s\)$' % (_NUM, _NUM)),
+    # 对抗相位（红蓝分队博弈）
+    re.compile(r'^PURSUE@\(%s,%s\)$' % (_NUM, _NUM)),
+    re.compile(r'^INTERCEPT@\(%s,%s,%s\)$' % (_NUM, _NUM, _NUM)),
+    re.compile(r'^EVADE@\(%s,%s\)$' % (_NUM, _NUM)),
+    re.compile(r'^DEFEND_ZONE@\(%s,%s,%s\)$' % (_NUM, _NUM, _NUM)),
+    re.compile(r'^RETREAT@\(%s,%s\)$' % (_NUM, _NUM)),
+    re.compile(r'^ENCIRCLE@\(%s,%s,%s\)$' % (_NUM, _NUM, _NUM)),
+               )
 )
 
 

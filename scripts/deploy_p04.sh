@@ -17,10 +17,13 @@ for f in nl_command_node_p04.py phase_link.py safety_layer.py phase_fault_proxy.
   fi
 done
 
-echo "[2/3] 复制 P0-4 文件..."
+echo "[2/3] 复制 P0-4 + 对抗文件..."
 cp "$SRC/nl_command_node_p04.py" "$SRC/phase_link.py" "$SRC/phase_fault_proxy.py" "$PKG/"
+cp "$SRC/adversarial_phase_generator.py" "$SRC/referee_node.py" "$SRC/safety_layer_adversarial.py" "$PKG/"
+cp "$SRC/pub_situation.py" "$SRC/pub_nl.py" "$PKG/"
+cp "$SRC/phase_rules.py" "$PKG/"
 cp "$SAFE/safety_layer.py" "$PKG/"
-ls -la "$PKG" | grep -E "p04|link|safety" || true
+ls "$PKG" | grep -E "p04|link|safety|adv|referee|pub" || true
 
 echo "[3/3] colcon build..."
 source /opt/ros/humble/setup.bash
