@@ -26,6 +26,8 @@ CAPTURE_RADIUS = 15.0
 TIME_LIMIT_S = 300.0
 SAFE_ZONE_CENTER = (80.0, 80.0)
 SAFE_ZONE_RADIUS = 15.0
+GRACE_PERIOD_S = 10.0       # 对抗开始后宽限期（等所有无人机真正起飞）
+MIN_START_SEPARATION = 20.0 # 红蓝初始最小间距（低于此值视为未就位）
 
 
 def dist2d(a, b):
@@ -64,11 +66,22 @@ class RefereeNode(Node):
                SAFE_ZONE_CENTER[1], SAFE_ZONE_RADIUS))
 
     def _on_position(self, idx, msg):
+        # NED → ENU 转换
         self._positions[idx] = [msg.y, msg.x, -msg.z]
         self._pos_received[idx] = True
         if self._battle_start is None and all(self._pos_received):
-            self._battle_start = time.time()
-            self.get_logger().info('全部 4 机位置就绪，对抗计时开始')
+            # 位置有效性检查：蓝队必须在非原点附近（AirSim 布局在 (50,50)）
+            blue_pos = [self._positions[i] for i in TEAM_MEMBERS['blue']]
+            blue_valid = all(dist2d(b[:2], (50, 50)) < 30 for b in blue_pos)
+            if blue_valid:
+                self._battle_start = time.time()
+                self.get_logger().info(
+                    '全部 4 机位置有效（蓝队在 (%.0f,%.0f) 附近），对抗计时开始'
+                    % (blue_pos[0][0], blue_pos[0][1]))
+            else:
+                # 位置尚未有效，重置等待下一轮
+                for i in range(4):
+                    self._pos_received[i] = False
 
     def _log(self, event, **kw):
         rec = {'t': round(time.time(), 3), 'event': event}
@@ -82,9 +95,23 @@ class RefereeNode(Node):
         self._tick_count += 1
         elapsed = time.time() - self._battle_start
 
+        # 宽限期内不判定（等无人机起飞就位）
+        if elapsed < GRACE_PERIOD_S:
+            if self._tick_count % 5 == 0:
+                self.get_logger().info(
+                    '[宽限期] %.0fs/%.0fs | 等待无人机就位...' % (elapsed, GRACE_PERIOD_S))
+            return
+
         red = [self._positions[i] for i in TEAM_MEMBERS['red']]
         blue = [self._positions[i] for i in TEAM_MEMBERS['blue']]
+
+        # 位置有效性二次检查（防止起飞前误判）
         min_dist = min(dist2d(r[:2], b[:2]) for r in red for b in blue)
+        if min_dist < MIN_START_SEPARATION and elapsed < GRACE_PERIOD_S * 2:
+            self.get_logger().warn(
+                '[跳过判定] 距离 %.1fm < 初始间距 %.0fm（无人机未就位）'
+                % (min_dist, MIN_START_SEPARATION))
+            return
 
         # 蓝队是否到达安全区
         blue_at_safe = all(
