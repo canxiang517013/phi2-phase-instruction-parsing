@@ -22,11 +22,11 @@ from std_msgs.msg import String, Header
 from px4_msgs.msg import VehicleLocalPosition
 
 try:
-    from .phase_rules import validate_phase, DEFAULT_PHASE
+    from ..common.phase_rules import validate_phase, DEFAULT_PHASE
 except ImportError:
     import sys
     import os
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'common'))
     from phase_rules import validate_phase, DEFAULT_PHASE
 
 # 四机命名空间（与 run_4drones.sh 对应）
