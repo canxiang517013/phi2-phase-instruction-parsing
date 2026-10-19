@@ -134,13 +134,25 @@ class SafetyLayer:
             return False, dict(SAFE_DEFAULT), 'unverified-ids'
 
         # 4) 相位-动作一致性（有相位上下文时才生效）
+        #    RECONFIGURE: 编队名必须匹配
+        #    其他相位: 仅当目标值来自相位派生（非指令显式给出）时才要求匹配；
+        #    指令显式坐标通过溯源检查（第 3 层）即视为安全，允许与相位默认不同
+        #    （对抗模式下指令目标可与相位不同：如 HOLD 相位下收到 evade 指令）
         if ph:
             if ph['type'] == 'RECONFIGURE':
                 if form != ph['formation']:
                     return False, dict(SAFE_DEFAULT), 'phase-formation-mismatch'
             else:
-                if not all(_close(a, b, 1e-6) for a, b in zip((x, y, z), ph['target'])):
-                    return False, dict(SAFE_DEFAULT), 'phase-target-mismatch'
+                # 检查目标是否来自指令（而非相位）
+                cmd_nums = extract_numbers(user)
+                from_cmd = all(
+                    any(_close(v, c, self.tol) for c in cmd_nums)
+                    for v in (x, y, z)
+                )
+                if not from_cmd:
+                    # 目标不是指令显式给出的 → 必须与相位目标匹配
+                    if not all(_close(a, b, 1e-6) for a, b in zip((x, y, z), ph['target'])):
+                        return False, dict(SAFE_DEFAULT), 'phase-target-mismatch'
 
         # 5) 速度/高度/间距约束（P0-4 场景参数，默认与包络一致，可外部扩展）
         action = dict(got)
