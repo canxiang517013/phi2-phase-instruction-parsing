@@ -45,6 +45,11 @@ PHASE_PATTERNS = (
     re.compile(r'^DEFEND_ZONE@\(%s,%s,%s\)$' % (_NUM, _NUM, _NUM)),
     re.compile(r'^RETREAT@\(%s,%s\)$' % (_NUM, _NUM)),
     re.compile(r'^ENCIRCLE@\(%s,%s,%s\)$' % (_NUM, _NUM, _NUM)),
+    # 3v3 协同相位
+    re.compile(r'^SWARM_PURSUE@\(%s,%s,%s\)$' % (_NUM, _NUM, _NUM)),
+    re.compile(r'^SCATTER_EVADE@\(%s,%s,%s\)$' % (_NUM, _NUM, _NUM)),
+    re.compile(r'^ESCORT@\(%s,%s,%s\)$' % (_NUM, _NUM, _NUM)),
+    re.compile(r'^INTERCEPT_V@\(%s,%s,%s\)$' % (_NUM, _NUM, _NUM)),
 )
 
 
