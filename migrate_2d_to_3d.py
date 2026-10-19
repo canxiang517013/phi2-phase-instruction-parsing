@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """migrate_2d_to_3d.py — 将师兄的 2D experiment_core.py 转为 3D 版
-一次性完成全部维度修改，输出 experiment_core_3d.py
+一次性完成全部维度修改，输出 phase-aware-llm-meta-controller/src/experiment_core_3d.py
+
+注意：该克隆目录被 .gitignore 忽略，只作本地迁移草稿。仓库中实际维护的版本是
+src/training/experiment_core_3d.py，并在迁移结果上手工增加了训练所需的 CLI 参数
+（--methods / --episodes / --device / --ollama-url / --llm-model）。重新运行本脚本
+不会更新该文件，修改功能请直接编辑 src/training/experiment_core_3d.py。
 """
 from pathlib import Path
 

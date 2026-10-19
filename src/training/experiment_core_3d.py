@@ -2290,11 +2290,51 @@ def parse_args() -> argparse.Namespace:
         "--results-dir", default=BASE_CFG["results_dir"], help="Output directory"
     )
     parser.add_argument(
+        "--methods",
+        nargs="+",
+        choices=[
+            "baseline",
+            "phase_aware",
+            "uniform_matched",
+            "random_matched",
+            "rule_based",
+        ],
+        default=[
+            "phase_aware",
+            "baseline",
+            "uniform_matched",
+            "random_matched",
+            "rule_based",
+        ],
+        help="Methods to run; matched baselines still execute after phase_aware",
+    )
+    parser.add_argument(
         "--seeds",
         nargs="+",
         type=int,
         default=DEFAULT_SEEDS_10,
-        help="Ten preregistered independent random seeds",
+        help="Independent random seeds (paper protocol requires at least ten)",
+    )
+    parser.add_argument(
+        "--episodes",
+        type=int,
+        default=BASE_CFG["episodes"],
+        help="Training episodes per run",
+    )
+    parser.add_argument(
+        "--device",
+        default=None,
+        help="Torch device, e.g. cuda or cpu (default: auto-detect)",
+    )
+    parser.add_argument(
+        "--ollama-url",
+        default=BASE_CFG["ollama_base_url"],
+        help="Ollama base URL used by the LLM methods",
+    )
+    parser.add_argument(
+        "--llm-model",
+        default=BASE_CFG["llm_model"],
+        help="Ollama model name used by the LLM methods",
     )
     parser.add_argument(
         "--resume",
@@ -2359,8 +2399,19 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    if len(args.seeds) < 1:
+        raise ValueError("At least one seed is required.")
     if len(args.seeds) < 10:
-        raise ValueError("At least ten seeds are required for the primary paper experiment.")
+        print(
+            f"WARNING: only {len(args.seeds)} seed(s) requested. "
+            "The primary paper protocol requires at least ten."
+        )
+    if args.episodes <= 0:
+        raise ValueError("--episodes must be positive.")
+    if args.device and args.device.startswith("cuda") and not torch.cuda.is_available():
+        raise RuntimeError(
+            "--device requests CUDA, but torch.cuda.is_available() is False."
+        )
     if not 0.0 <= args.follow_retention_threshold <= 1.0:
         raise ValueError("--follow-retention-threshold must be between 0 and 1.")
     if args.episode_len <= 0:
@@ -2381,6 +2432,7 @@ def main() -> None:
 
     cfg = deepcopy(BASE_CFG)
     cfg["results_dir"] = args.results_dir
+    cfg["episodes"] = args.episodes
     cfg["phase_detection_mode"] = args.phase_mode
     cfg["episode_len"] = args.episode_len
     cfg["max_speed"] = args.max_speed
@@ -2390,26 +2442,55 @@ def main() -> None:
     cfg["follow_retention_threshold"] = args.follow_retention_threshold
     cfg["terminal_follow_error_threshold"] = args.terminal_follow_error_threshold
     cfg["mid_to_late"]["mean_follow_error"] = args.mid_late_error_threshold
+    cfg["ollama_base_url"] = args.ollama_url
+    cfg["llm_model"] = args.llm_model
+    if args.device:
+        cfg["device"] = args.device
     results_dir = Path(args.results_dir)
     results_dir.mkdir(parents=True, exist_ok=True)
     json_dump(results_dir / "experiment_config.json", cfg)
+    print(f"Device: {cfg['device']} | episodes/run: {cfg['episodes']} | seeds: {args.seeds}")
 
     # The proposed method must run first because it creates the matched schedule
     # consumed by the two controlled baselines.
+    requested = set(args.methods)
     execution_order = [
-        "phase_aware",
-        "baseline",
-        "uniform_matched",
-        "random_matched",
-        "rule_based",
+        method
+        for method in [
+            "phase_aware",
+            "baseline",
+            "uniform_matched",
+            "random_matched",
+            "rule_based",
+        ]
+        if method in requested
     ]
     report_order = [
-        "baseline",
-        "random_matched",
-        "uniform_matched",
-        "rule_based",
-        "phase_aware",
+        method
+        for method in [
+            "baseline",
+            "random_matched",
+            "uniform_matched",
+            "rule_based",
+            "phase_aware",
+        ]
+        if method in requested
     ]
+    matched_methods = requested & {"uniform_matched", "random_matched"}
+    if matched_methods and "phase_aware" not in requested:
+        missing = [
+            str(results_dir / f"phase_aware_seed{seed}" / "matched_schedule.json")
+            for seed in args.seeds
+            if not (
+                results_dir / f"phase_aware_seed{seed}" / "matched_schedule.json"
+            ).exists()
+        ]
+        if missing:
+            raise FileNotFoundError(
+                "Matched baselines need the phase_aware schedules first. "
+                "Add phase_aware to --methods or run it beforehand. Missing:\n"
+                + "\n".join(missing)
+            )
 
     start = time.time()
     for method in execution_order:
