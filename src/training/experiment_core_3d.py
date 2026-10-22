@@ -74,18 +74,18 @@ except ModuleNotFoundError:
 # -----------------------------------------------------------------------------
 BASE_CFG: Dict[str, Any] = dict(
     n_agents=4,
-    episode_len=500,
+    episode_len=600,
     episodes=2500,
     final_window=100,
 
     # Reproducibility and environment variants. env_seed is overwritten for
     # every run so paired methods see the same stochastic stream.
     env_seed=0,
-    leader_start=[0.0, 0.0, 20.0],
-    leader_target=[200.0, 200.0, 25.0],
+    leader_start=[0.0, 0.0, 40.0],
+    leader_target=[200.0, 200.0, 45.0],
     randomize_start_positions=False,
     start_position_jitter=0.0,
-    start_position_bounds=[-120.0, 120.0, -120.0, 120.0, 2.0, 80.0],
+    start_position_bounds=[-120.0, 120.0, -120.0, 120.0, 2.0, 100.0],
     start_min_separation=20.0,
     observation_noise_std=0.0,
     action_noise_std=0.0,
@@ -96,20 +96,24 @@ BASE_CFG: Dict[str, Any] = dict(
     initial_actor_path=None,
     gamma=0.99,
     gae_lambda=0.95,
-    ppo_epochs=2,
-    actor_lr=5e-5,
-    critic_lr=1e-4,
+    ppo_epochs=4,
+    actor_lr=1e-4,
+    critic_lr=3e-4,
     dt=0.1,
     max_speed=15.0,
     max_vertical_speed=8.0,
     min_altitude=2.0,
-    max_altitude=80.0,
+    max_altitude=100.0,
     leader_speed=10.0,
     leader_acceleration=2.0,
     act_scale=15.0,
     formation_radius=60.0,
     formation_threshold=25.0,
     formation_stable_steps=5,
+    # Nearest-quadrant assignment for the regular tetrahedron. The raw vertex
+    # order sends two followers across the whole formation (192 m initial
+    # error) and was a major source of collisions.
+    formation_offset_order=[0, 2, 3, 1],
 
     # Full-task success definition. After all followers acquire their own
     # targets, each follower is evaluated independently during the moving-target
@@ -123,9 +127,17 @@ BASE_CFG: Dict[str, Any] = dict(
     collision_distance=10.0,
     device="cuda" if torch.cuda.is_available() else "cpu",
     clip_param=0.2,
-    value_clip=0.5,
-    entropy_coef=0.005,
+    # Returns are normalised by a running reward std, so the old 0.5 value
+    # clip would throttle the critic. 0 disables value clipping entirely.
+    value_clip=0.0,
+    entropy_coef=0.002,
+    entropy_coef_max=0.003,
     max_grad_norm=1.0,
+    log_std_init=-0.5,
+    critic_hidden=256,
+    minibatch_size=256,
+    reward_normalization=True,
+    reward_clip=100.0,
 
     # Reward scales. The four adjustable quantities are w_position,
     # w_formation, w_success, and entropy_coef.
@@ -138,12 +150,26 @@ BASE_CFG: Dict[str, Any] = dict(
         success_event=10.0,
         success_maintenance=5.0,
     ),
+    # 3-D-only shaping: penalise velocity mismatch with the moving leader.
+    # Pure position feedback has a steady-state lag of leader_speed/kp
+    # (about 66 m in the diagnostic PD controller). A feedforward signal is
+    # needed for the policy to track the leader without that lag.
+    velocity_reward_weight=0.08,
+
+    # Leader-motion curriculum: the leader stays still for the first stage,
+    # then starts moving at a fixed step even if formation is not acquired.
+    # This prevents the "no acquisition -> never see a moving leader" trap.
+    curriculum_enabled=True,
+    curriculum_static_episodes=600,
+    curriculum_forced_start_step=150,
+    curriculum_speed_schedule=[(600, 5.0), (1400, 8.0), (2000, 10.0)],
 
     # Phase detection: monotonic early -> mid -> late.
     phase_detection_mode="metrics",  # "metrics" or "fixed"
     phase_window=100,
     phase_patience=5,
-    phase_boundaries={"early_end": 500, "mid_end": 1500},
+    phase_boundaries={"early_end": 800, "mid_end": 1800},
+    phase_episode_fallback={"mid": 800, "late": 1800},
     early_to_mid=dict(min_episode=200, acquisition_rate=0.05, mean_error=60.0),
     mid_to_late=dict(
         min_episode=600,
@@ -153,7 +179,7 @@ BASE_CFG: Dict[str, Any] = dict(
 
     phase_consult_intervals={"early": 30, "mid": 50, "late": 100},
     phase_param_whitelist={
-        "early": ["entropy_coef", "w_position"],
+        "early": ["entropy_coef", "w_position", "w_formation"],
         "mid": ["w_position", "w_formation", "w_success", "entropy_coef"],
         "late": ["w_position", "w_formation"],
         "uniform": ["w_position", "w_formation", "w_success", "entropy_coef"],
@@ -187,8 +213,10 @@ BASE_CFG: Dict[str, Any] = dict(
         "w_position": {"min": 0.3, "max": 2.0, "default": 1.0},
         "w_formation": {"min": 0.3, "max": 2.0, "default": 0.8},
         "w_success": {"min": 5.0, "max": 30.0, "default": 10.0},
-        "entropy_coef": {"min": 0.001, "max": 0.02, "default": 0.005},
+        "entropy_coef": {"min": 0.001, "max": 0.003, "default": 0.002},
     },
+    param_min_update_interval=100,
+    save_best_checkpoint=True,
     min_effective_change_pct=1.0,
 
     # Persistent stable-breakthrough definition used for paper reporting.
@@ -356,11 +384,19 @@ class MovingLeaderFormationEnv3D:
         self.formation_threshold = float(cfg["formation_threshold"])
         self.angles = np.linspace(0, 2 * np.pi, self.n, endpoint=False)  # kept for compat
         if self.n == 4:
-            self.formation_offsets = TETRAHEDRON_OFFSETS.copy()
+            order = self.cfg.get("formation_offset_order")
+            if order is None:
+                order = [0, 1, 2, 3]
+            if sorted(int(x) for x in order) != [0, 1, 2, 3]:
+                raise ValueError(
+                    "formation_offset_order must be a permutation of [0, 1, 2, 3]."
+                )
+            self.formation_offsets = TETRAHEDRON_OFFSETS[list(order)].copy()
         else:
             self.formation_offsets = fibonacci_sphere(self.n)
         self.base_seed = int(cfg.get("env_seed", 0))
         self.reset_index = -1
+        self.episode_index = 0
         self.rng = np.random.default_rng(self.base_seed)
         self.nominal_start_positions = self._build_nominal_start_positions()
         self.reward_weights = {
@@ -412,6 +448,7 @@ class MovingLeaderFormationEnv3D:
         # Episode-specific RNG prevents different termination times from shifting
         # the random stream of later paired episodes.
         self.reset_index += 1
+        self.episode_index = self.reset_index + 1
         self.rng = np.random.default_rng(
             np.random.SeedSequence([self.base_seed, self.reset_index])
         )
@@ -487,8 +524,27 @@ class MovingLeaderFormationEnv3D:
             ]
         ).astype(np.float32)
 
+    def _leader_speed_for_episode(self) -> float:
+        if not bool(self.cfg.get("curriculum_enabled", False)):
+            return self.leader_speed
+        speed = self.leader_speed
+        for start_episode, stage_speed in self.cfg.get("curriculum_speed_schedule", []):
+            if self.episode_index >= int(start_episode):
+                speed = float(stage_speed)
+        return speed
+
+    def _leader_motion_allowed(self) -> bool:
+        if not bool(self.cfg.get("curriculum_enabled", False)):
+            return self.formation_complete
+        if self.episode_index <= int(self.cfg.get("curriculum_static_episodes", 0)):
+            return self.formation_complete
+        # After the static stage the leader moves at a fixed step even when the
+        # formation is incomplete, so the policy always receives tracking data.
+        forced_step = int(self.cfg.get("curriculum_forced_start_step", 10**9))
+        return self.formation_complete or self.t >= forced_step
+
     def update_leader(self) -> None:
-        if not self.formation_complete:
+        if not self._leader_motion_allowed():
             self.leader_vel = np.zeros(3, dtype=np.float32)
             return
         direction = self.leader_target - self.leader_pos
@@ -497,7 +553,8 @@ class MovingLeaderFormationEnv3D:
             self.leader_pos = self.leader_target.copy()
             self.leader_vel = np.zeros(3, dtype=np.float32)
             return
-        desired_speed = min(self.leader_speed, distance / self.dt)
+        speed_limit = self._leader_speed_for_episode()
+        desired_speed = min(speed_limit, distance / self.dt)
         desired_velocity = direction / distance * desired_speed
         delta_v = desired_velocity - self.leader_vel
         delta_norm = float(np.linalg.norm(delta_v))
@@ -573,6 +630,16 @@ class MovingLeaderFormationEnv3D:
             rewards += float(scale["success_event"]) * w["success"]
         if self.formation_complete and float(np.max(position_errors)) < 5.0:
             rewards += float(scale["success_maintenance"]) * w["success"]
+        vel_weight = float(self.cfg.get("velocity_reward_weight", 0.0))
+        leader_moving = float(np.linalg.norm(self.leader_vel)) > 0.1
+        if vel_weight > 0.0 and (self.formation_complete or leader_moving):
+            velocity_error = np.linalg.norm(
+                self.vel - self.leader_vel[None, :], axis=1
+            )
+            rewards -= vel_weight * velocity_error ** 2
+        reward_clip = float(self.cfg.get("reward_clip", 0.0))
+        if reward_clip > 0.0:
+            rewards = np.clip(rewards, -reward_clip, reward_clip)
         return rewards.astype(np.float32)
 
     def step(
@@ -711,7 +778,7 @@ class MovingLeaderFormationEnv3D:
 # Networks and PPO
 # -----------------------------------------------------------------------------
 class SquashedGaussianActor(nn.Module):
-    def __init__(self, obs_dim: int):
+    def __init__(self, obs_dim: int, log_std_init: float = 0.0):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(obs_dim, 64),
@@ -720,7 +787,7 @@ class SquashedGaussianActor(nn.Module):
             nn.Tanh(),
             nn.Linear(64, 3),
         )
-        self.log_std = nn.Parameter(torch.zeros(3))
+        self.log_std = nn.Parameter(torch.full((3,), float(log_std_init)))
 
     def distribution(self, obs: torch.Tensor) -> Normal:
         mean = self.net(obs)
@@ -746,14 +813,14 @@ class SquashedGaussianActor(nn.Module):
 
 
 class CentralizedCritic(nn.Module):
-    def __init__(self, state_dim: int, n_agents: int):
+    def __init__(self, state_dim: int, n_agents: int, hidden: int = 128):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(state_dim, 128),
+            nn.Linear(state_dim, hidden),
             nn.ReLU(),
-            nn.Linear(128, 128),
+            nn.Linear(hidden, hidden),
             nn.ReLU(),
-            nn.Linear(128, n_agents),
+            nn.Linear(hidden, n_agents),
         )
 
     def forward(self, state: torch.Tensor) -> torch.Tensor:
@@ -796,6 +863,32 @@ def compute_gae(
         advantages[t] = gae
     returns = advantages + values
     return advantages, returns
+
+
+class RunningStat:
+    """Running mean/variance (Welford) for reward normalisation."""
+
+    def __init__(self) -> None:
+        self.mean = 0.0
+        self.m2 = 0.0
+        self.count = 1e-4
+
+    def update(self, values: np.ndarray) -> None:
+        x = np.asarray(values, dtype=np.float64).reshape(-1)
+        n = int(x.size)
+        if n == 0:
+            return
+        batch_mean = float(x.mean())
+        batch_m2 = float(((x - batch_mean) ** 2).sum())
+        total = self.count + n
+        delta = batch_mean - self.mean
+        self.mean += delta * n / total
+        self.m2 += batch_m2 + delta ** 2 * self.count * n / total
+        self.count = total
+
+    @property
+    def std(self) -> float:
+        return float(np.sqrt(self.m2 / self.count + 1e-8))
 
 
 def ppo_update(
@@ -847,42 +940,66 @@ def ppo_update(
     old_values_t = torch.tensor(rollout.values, dtype=torch.float32, device=device)
     returns_t = torch.tensor(returns, dtype=torch.float32, device=device)
 
-    actor_loss_value = 0.0
-    critic_loss_value = 0.0
+    n_actor = int(obs_t.shape[0])
+    n_critic = int(states_t.shape[0])
+    batch_size = int(cfg.get("minibatch_size", 0) or 0)
+    if batch_size <= 0:
+        actor_batch = n_actor
+        critic_batch = n_critic
+    else:
+        actor_batch = min(batch_size, n_actor)
+        critic_batch = min(batch_size, n_critic)
+    value_clip = float(cfg.get("value_clip", 0.0))
+
+    actor_loss_sum = 0.0
+    critic_loss_sum = 0.0
+    actor_samples = 0
+    critic_samples = 0
     for _ in range(int(cfg["ppo_epochs"])):
-        new_logp, entropy = actor.evaluate_actions(obs_t, actions_t)
-        ratio = torch.exp(new_logp - old_logp_t)
-        surrogate_1 = ratio * adv_t
-        surrogate_2 = torch.clamp(
-            ratio, 1.0 - float(cfg["clip_param"]), 1.0 + float(cfg["clip_param"])
-        ) * adv_t
-        actor_loss = -torch.min(surrogate_1, surrogate_2).mean()
-        actor_loss -= float(entropy_coef) * entropy.mean()
+        actor_perm = torch.randperm(n_actor, device=device)
+        for start in range(0, n_actor, actor_batch):
+            idx = actor_perm[start:start + actor_batch]
+            new_logp, entropy = actor.evaluate_actions(obs_t[idx], actions_t[idx])
+            ratio = torch.exp(new_logp - old_logp_t[idx])
+            surrogate_1 = ratio * adv_t[idx]
+            surrogate_2 = torch.clamp(
+                ratio, 1.0 - float(cfg["clip_param"]), 1.0 + float(cfg["clip_param"])
+            ) * adv_t[idx]
+            actor_loss = -torch.min(surrogate_1, surrogate_2).mean()
+            actor_loss -= float(entropy_coef) * entropy.mean()
 
-        actor_optimizer.zero_grad(set_to_none=True)
-        actor_loss.backward()
-        nn.utils.clip_grad_norm_(actor.parameters(), float(cfg["max_grad_norm"]))
-        actor_optimizer.step()
+            actor_optimizer.zero_grad(set_to_none=True)
+            actor_loss.backward()
+            nn.utils.clip_grad_norm_(actor.parameters(), float(cfg["max_grad_norm"]))
+            actor_optimizer.step()
+            actor_loss_sum += float(actor_loss.detach().cpu()) * int(idx.numel())
+            actor_samples += int(idx.numel())
 
-        values_pred = critic(states_t)
-        values_clipped = old_values_t + torch.clamp(
-            values_pred - old_values_t,
-            -float(cfg["value_clip"]),
-            float(cfg["value_clip"]),
-        )
-        value_loss_unclipped = (values_pred - returns_t).pow(2)
-        value_loss_clipped = (values_clipped - returns_t).pow(2)
-        critic_loss = 0.5 * torch.max(value_loss_unclipped, value_loss_clipped).mean()
+        critic_perm = torch.randperm(n_critic, device=device)
+        for start in range(0, n_critic, critic_batch):
+            idx = critic_perm[start:start + critic_batch]
+            values_pred = critic(states_t[idx])
+            if value_clip > 0.0:
+                values_clipped = old_values_t[idx] + torch.clamp(
+                    values_pred - old_values_t[idx], -value_clip, value_clip
+                )
+                loss_unclipped = (values_pred - returns_t[idx]).pow(2)
+                loss_clipped = (values_clipped - returns_t[idx]).pow(2)
+                critic_loss = 0.5 * torch.max(loss_unclipped, loss_clipped).mean()
+            else:
+                critic_loss = 0.5 * (values_pred - returns_t[idx]).pow(2).mean()
 
-        critic_optimizer.zero_grad(set_to_none=True)
-        critic_loss.backward()
-        nn.utils.clip_grad_norm_(critic.parameters(), float(cfg["max_grad_norm"]))
-        critic_optimizer.step()
+            critic_optimizer.zero_grad(set_to_none=True)
+            critic_loss.backward()
+            nn.utils.clip_grad_norm_(critic.parameters(), float(cfg["max_grad_norm"]))
+            critic_optimizer.step()
+            critic_loss_sum += float(critic_loss.detach().cpu()) * int(idx.numel())
+            critic_samples += int(idx.numel())
 
-        actor_loss_value = float(actor_loss.detach().cpu())
-        critic_loss_value = float(critic_loss.detach().cpu())
-
-    return {"actor_loss": actor_loss_value, "critic_loss": critic_loss_value}
+    return {
+        "actor_loss": actor_loss_sum / max(actor_samples, 1),
+        "critic_loss": critic_loss_sum / max(critic_samples, 1),
+    }
 
 
 # -----------------------------------------------------------------------------
@@ -941,7 +1058,7 @@ class OllamaClient:
 
 
 class TrainingMonitor:
-    def __init__(self, cfg: Dict[str, Any], env: MovingLeaderFormationEnv):
+    def __init__(self, cfg: Dict[str, Any], env: MovingLeaderFormationEnv3D):
         self.cfg = cfg
         self.env = env
         self.metrics_history: List[Dict[str, Any]] = []
@@ -958,6 +1075,7 @@ class TrainingMonitor:
         self.consultation_history: List[Dict[str, Any]] = []
         self.intervention_history: List[Dict[str, Any]] = []
         self.parameter_update_count = 0
+        self.last_param_update_episode: Dict[str, int] = {}
         self.first_acquisition_episode: Optional[int] = None
         self.first_success_episode: Optional[int] = None
 
@@ -1070,6 +1188,16 @@ class TrainingMonitor:
             return
 
         summary = self.recent_summary(int(self.cfg["phase_window"]))
+        fallback = self.cfg.get("phase_episode_fallback") or {}
+        if fallback and self.training_phase != "late":
+            late_episode = int(fallback.get("late", 10**9))
+            mid_episode = int(fallback.get("mid", 10**9))
+            if episode >= late_episode:
+                self._transition(episode, "late", "episode-count fallback")
+                return
+            if episode >= mid_episode and self.training_phase == "early":
+                self._transition(episode, "mid", "episode-count fallback")
+                return
         patience = int(self.cfg["phase_patience"])
         if self.training_phase == "early":
             rule = self.cfg["early_to_mid"]
@@ -1176,6 +1304,17 @@ class TrainingMonitor:
         if param_name not in self.current_params:
             audit["rejection_reason"] = "unknown_parameter"
             return None, audit
+        min_interval = int(self.cfg.get("param_min_update_interval", 0))
+        last_episode = self.last_param_update_episode.get(param_name)
+        if (
+            min_interval > 0
+            and last_episode is not None
+            and episode - last_episode < min_interval
+        ):
+            audit["rejection_reason"] = (
+                f"minimum_update_interval({min_interval})"
+            )
+            return None, audit
         bounds = self.cfg["param_stability"][param_name]
         multiplier = self.cfg["phase_adjustment_multipliers"][phase][magnitude][
             adjustment_type
@@ -1202,6 +1341,7 @@ class TrainingMonitor:
             audit["rejection_reason"] = "minimum_effective_change"
             return None, audit
         self.current_params[param_name] = new_value
+        self.last_param_update_episode[param_name] = episode
         self.parameter_update_count += 1
         self.env.update_reward_weights(
             {
@@ -1546,7 +1686,7 @@ def execute_rule_based_intervention(
 # Training and result extraction
 # -----------------------------------------------------------------------------
 def build_rollout(
-    env: MovingLeaderFormationEnv,
+    env: MovingLeaderFormationEnv3D,
     actor: SquashedGaussianActor,
     critic: CentralizedCritic,
     cfg: Dict[str, Any],
@@ -1648,8 +1788,12 @@ def train_single_run(
     monitor = TrainingMonitor(local_cfg, env)
 
     obs0, state0 = env.reset()
-    actor = SquashedGaussianActor(obs0.shape[1]).to(local_cfg["device"])
-    critic = CentralizedCritic(state0.shape[0], env.n).to(local_cfg["device"])
+    actor = SquashedGaussianActor(
+        obs0.shape[1], log_std_init=float(local_cfg.get("log_std_init", 0.0))
+    ).to(local_cfg["device"])
+    critic = CentralizedCritic(
+        state0.shape[0], env.n, hidden=int(local_cfg.get("critic_hidden", 128))
+    ).to(local_cfg["device"])
     initial_actor_path = local_cfg.get("initial_actor_path")
     if initial_actor_path:
         actor.load_state_dict(
@@ -1691,17 +1835,29 @@ def train_single_run(
     success_history: List[int] = []
     param_history = {name: [] for name in monitor.current_params}
     phase_history: List[str] = []
+    reward_stats = RunningStat()
+    best_score: Optional[Tuple[float, float]] = None
+    best_episode: Optional[int] = None
     start_time = time.time()
 
     for episode in range(1, int(local_cfg["episodes"]) + 1):
         rollout, info, mean_reward = build_rollout(env, actor, critic, local_cfg)
+        if bool(local_cfg.get("reward_normalization", False)):
+            reward_stats.update(rollout.rewards)
+            rollout.rewards = (
+                rollout.rewards / max(reward_stats.std, 1e-3)
+            ).astype(np.float32)
+        entropy_coef = min(
+            float(monitor.current_params["entropy_coef"]),
+            float(local_cfg.get("entropy_coef_max", 1e9)),
+        )
         losses = ppo_update(
             actor,
             critic,
             actor_optimizer,
             critic_optimizer,
             rollout,
-            monitor.current_params["entropy_coef"],
+            entropy_coef,
             local_cfg,
         )
 
@@ -1768,6 +1924,26 @@ def train_single_run(
         for name in param_history:
             param_history[name].append(float(monitor.current_params[name]))
         phase_history.append(monitor.training_phase)
+
+        if bool(local_cfg.get("save_best_checkpoint", False)):
+            window = min(int(local_cfg["final_window"]), len(success_history))
+            score = (
+                float(np.mean(success_history[-window:])),
+                -float(np.mean(follow_error_history[-window:])),
+            )
+            if best_score is None or score > best_score:
+                best_score = score
+                best_episode = episode
+                torch.save(actor.state_dict(), run_dir / "actor_best.pth")
+                json_dump(
+                    run_dir / "best_checkpoint.json",
+                    {
+                        "episode": episode,
+                        "rolling_success_rate": score[0] * 100.0,
+                        "rolling_follow_error": -score[1],
+                        "window": window,
+                    },
+                )
 
         if episode % int(local_cfg["tensorboard_log_interval"]) == 0 or episode == 1:
             final_window = int(local_cfg["final_window"])
@@ -1858,13 +2034,45 @@ def train_single_run(
     ]
 
     results: Dict[str, Any] = {
-        "schema_version": 6,
+        "schema_version": 7,
         "method": method,
         "controller_type": controller_type,
         "seed": seed,
         "episode_indexing": "1-based",
         "n_episodes": int(local_cfg["episodes"]),
         "final_window": final_window,
+        "best_checkpoint_episode": best_episode,
+        "best_checkpoint_score": list(best_score) if best_score is not None else None,
+        "reward_normalization_std": float(reward_stats.std),
+        "optimization_profile": {
+            "episode_len": int(local_cfg["episode_len"]),
+            "leader_start": list(local_cfg["leader_start"]),
+            "leader_target": list(local_cfg["leader_target"]),
+            "max_altitude": float(local_cfg["max_altitude"]),
+            "formation_offset_order": list(
+                local_cfg.get("formation_offset_order", [0, 1, 2, 3])
+            ),
+            "curriculum_enabled": bool(local_cfg.get("curriculum_enabled", False)),
+            "curriculum_static_episodes": int(
+                local_cfg.get("curriculum_static_episodes", 0)
+            ),
+            "curriculum_forced_start_step": int(
+                local_cfg.get("curriculum_forced_start_step", 0)
+            ),
+            "curriculum_speed_schedule": list(
+                local_cfg.get("curriculum_speed_schedule", [])
+            ),
+            "velocity_reward_weight": float(
+                local_cfg.get("velocity_reward_weight", 0.0)
+            ),
+            "reward_normalization": bool(
+                local_cfg.get("reward_normalization", False)
+            ),
+            "value_clip": float(local_cfg.get("value_clip", 0.0)),
+            "minibatch_size": int(local_cfg.get("minibatch_size", 0)),
+            "log_std_init": float(local_cfg.get("log_std_init", 0.0)),
+            "critic_hidden": int(local_cfg.get("critic_hidden", 128)),
+        },
         "error_history": error_history,
         "pairwise_error_history": pairwise_error_history,
         "reward_history": reward_history,
@@ -2337,6 +2545,70 @@ def parse_args() -> argparse.Namespace:
         help="Ollama model name used by the LLM methods",
     )
     parser.add_argument(
+        "--no-curriculum",
+        action="store_true",
+        help="Disable the staged leader-motion curriculum",
+    )
+    parser.add_argument(
+        "--curriculum-static-episodes",
+        type=int,
+        default=None,
+        help="Episodes with a stationary leader before the curriculum starts",
+    )
+    parser.add_argument(
+        "--curriculum-forced-start-step",
+        type=int,
+        default=None,
+        help="Step at which the leader starts moving even without acquisition",
+    )
+    parser.add_argument(
+        "--no-reward-norm",
+        action="store_true",
+        help="Disable running reward normalisation",
+    )
+    parser.add_argument(
+        "--velocity-weight",
+        type=float,
+        default=None,
+        help="Velocity-matching reward weight after formation (3-D only)",
+    )
+    parser.add_argument(
+        "--log-std-init",
+        type=float,
+        default=None,
+        help="Initial actor log standard deviation",
+    )
+    parser.add_argument(
+        "--critic-hidden",
+        type=int,
+        default=None,
+        help="Hidden width of the centralised critic",
+    )
+    parser.add_argument(
+        "--ppo-epochs",
+        type=int,
+        default=None,
+        help="PPO optimisation epochs per episode",
+    )
+    parser.add_argument(
+        "--minibatch-size",
+        type=int,
+        default=None,
+        help="PPO minibatch size (0 keeps the full batch)",
+    )
+    parser.add_argument(
+        "--actor-lr",
+        type=float,
+        default=None,
+        help="Actor learning rate",
+    )
+    parser.add_argument(
+        "--critic-lr",
+        type=float,
+        default=None,
+        help="Critic learning rate",
+    )
+    parser.add_argument(
         "--resume",
         action="store_true",
         help="Reuse an existing results.json for an already completed run",
@@ -2446,10 +2718,37 @@ def main() -> None:
     cfg["llm_model"] = args.llm_model
     if args.device:
         cfg["device"] = args.device
+    if args.no_curriculum:
+        cfg["curriculum_enabled"] = False
+    if args.curriculum_static_episodes is not None:
+        cfg["curriculum_static_episodes"] = int(args.curriculum_static_episodes)
+    if args.curriculum_forced_start_step is not None:
+        cfg["curriculum_forced_start_step"] = int(args.curriculum_forced_start_step)
+    if args.no_reward_norm:
+        cfg["reward_normalization"] = False
+    if args.velocity_weight is not None:
+        cfg["velocity_reward_weight"] = float(args.velocity_weight)
+    if args.log_std_init is not None:
+        cfg["log_std_init"] = float(args.log_std_init)
+    if args.critic_hidden is not None:
+        cfg["critic_hidden"] = int(args.critic_hidden)
+    if args.ppo_epochs is not None:
+        cfg["ppo_epochs"] = int(args.ppo_epochs)
+    if args.minibatch_size is not None:
+        cfg["minibatch_size"] = int(args.minibatch_size)
+    if args.actor_lr is not None:
+        cfg["actor_lr"] = float(args.actor_lr)
+    if args.critic_lr is not None:
+        cfg["critic_lr"] = float(args.critic_lr)
     results_dir = Path(args.results_dir)
     results_dir.mkdir(parents=True, exist_ok=True)
     json_dump(results_dir / "experiment_config.json", cfg)
-    print(f"Device: {cfg['device']} | episodes/run: {cfg['episodes']} | seeds: {args.seeds}")
+    print(
+        f"Device: {cfg['device']} | episodes/run: {cfg['episodes']} | seeds: {args.seeds} | "
+        f"curriculum={cfg['curriculum_enabled']} | reward_norm={cfg['reward_normalization']} | "
+        f"velocity_weight={cfg['velocity_reward_weight']} | ppo_epochs={cfg['ppo_epochs']} | "
+        f"minibatch={cfg['minibatch_size']}"
+    )
 
     # The proposed method must run first because it creates the matched schedule
     # consumed by the two controlled baselines.

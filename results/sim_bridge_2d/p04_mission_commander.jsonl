@@ -1,0 +1,49 @@
+{"t": 1792647173.47, "event": "node_start", "base_url": "http://172.21.112.1:8080/v1", "model": "phi2-phased-v5-q5_k_m.gguf"}
+{"t": 1792647363.392, "event": "node_start", "base_url": "http://172.21.112.1:8080/v1", "model": "phi2-phased-v5-q5_k_m.gguf"}
+{"t": 1792647366.426, "event": "primitive", "type": "HOLD", "source": "phase", "phase": "HOLD@(0,0,5)"}
+{"t": 1792647605.967, "event": "node_start", "base_url": "http://172.21.112.1:8080/v1", "model": "phi2-phased-v5-q5_k_m.gguf"}
+{"t": 1792647608.665, "event": "primitive", "type": "HOLD", "source": "phase", "phase": "HOLD@(0,0,5)"}
+{"t": 1792647613.664, "event": "primitive", "type": "HOLD", "source": "phase", "phase": "HOLD@(0,0,5)"}
+{"t": 1792647618.665, "event": "primitive", "type": "HOLD", "source": "phase", "phase": "HOLD@(0,0,5)"}
+{"t": 1792647623.665, "event": "primitive", "type": "HOLD", "source": "phase", "phase": "HOLD@(0,0,5)"}
+{"t": 1792647628.665, "event": "primitive", "type": "HOLD", "source": "phase", "phase": "HOLD@(0,0,5)"}
+{"t": 1792647633.665, "event": "primitive", "type": "HOLD", "source": "phase", "phase": "HOLD@(0,0,5)"}
+{"t": 1792647638.664, "event": "primitive", "type": "HOLD", "source": "phase", "phase": "HOLD@(0,0,5)"}
+{"t": 1792647643.664, "event": "primitive", "type": "HOLD", "source": "phase", "phase": "HOLD@(0,0,5)"}
+{"t": 1792647648.665, "event": "primitive", "type": "HOLD", "source": "phase", "phase": "HOLD@(0,0,5)"}
+{"t": 1792647653.665, "event": "primitive", "type": "HOLD", "source": "phase", "phase": "HOLD@(0,0,5)"}
+{"t": 1792647658.664, "event": "primitive", "type": "HOLD", "source": "phase", "phase": "HOLD@(0,0,5)"}
+{"t": 1792647663.665, "event": "primitive", "type": "HOLD", "source": "phase", "phase": "HOLD@(0,0,5)"}
+{"t": 1792647668.665, "event": "primitive", "type": "HOLD", "source": "phase", "phase": "HOLD@(0,0,5)"}
+{"t": 1792647673.665, "event": "primitive", "type": "HOLD", "source": "phase", "phase": "HOLD@(0,0,5)"}
+{"t": 1792647678.664, "event": "primitive", "type": "HOLD", "source": "phase", "phase": "HOLD@(0,0,5)"}
+{"t": 1792647683.665, "event": "primitive", "type": "HOLD", "source": "phase", "phase": "HOLD@(0,0,5)"}
+{"t": 1792647688.665, "event": "primitive", "type": "HOLD", "source": "phase", "phase": "HOLD@(0,0,5)"}
+{"t": 1792647693.665, "event": "primitive", "type": "HOLD", "source": "phase", "phase": "HOLD@(0,0,5)"}
+{"t": 1792648011.856, "event": "node_start", "base_url": "http://172.21.112.1:8080/v1", "model": "phi2-phased-v5-q5_k_m.gguf"}
+{"t": 1792648011.908, "event": "nl_input", "text": "编队前往坐标(-100,100)执行侦察，高度30"}
+{"t": 1792648012.741, "event": "slm_raw", "prompt_phase": null, "raw": "{\"mode\": \"swarm\", \"formation\": \"line\", \"uav_ids\": [1, 2, 3], \"target\": [-100.0, 100.0, 30.0]}", "latency_ms": 831.2}
+{"t": 1792648012.742, "event": "safety", "accepted": true, "reason": "ok", "action": {"mode": "swarm", "formation": "line", "uav_ids": [1, 2, 3], "target": [-100.0, 100.0, 30.0], "source": "slm"}, "raw": "{\"mode\": \"swarm\", \"formation\": \"line\", \"uav_ids\": [1, 2, 3], \"target\": [-100.0, 100.0, 30.0]}"}
+{"t": 1792648012.742, "event": "primitive", "nl": "编队前往坐标(-100,100)执行侦察，高度30", "phase": null, "slm_latency_ms": 831.2, "source": "mission_commander", "mode": "swarm", "uav_ids": [1, 2, 3], "type": "LEADER_TARGET", "target": [-100.0, 100.0], "alt_note": 30.0}
+{"t": 1792648014.553, "event": "primitive", "type": "HOLD", "source": "phase", "phase": "HOLD@(0,0,5)"}
+{"t": 1792648750.385, "event": "node_start", "base_url": "http://172.21.112.1:8080/v1", "model": "phi2-phased-v5-q5_k_m.gguf"}
+{"t": 1792648797.442, "event": "nl_input", "text": "编队前往坐标(-100,100)执行侦察，高度30"}
+{"t": 1792648798.279, "event": "slm_raw", "prompt_phase": "ASSEMBLE@(0,0)", "raw": "{\"mode\": \"swarm\", \"formation\": \"line\", \"uav_ids\": [1, 2, 3], \"target\": [-100.0, 100.0, 30.0]}", "latency_ms": 835.5}
+{"t": 1792648798.28, "event": "safety", "accepted": true, "reason": "ok", "action": {"mode": "swarm", "formation": "line", "uav_ids": [1, 2, 3], "target": [-100.0, 100.0, 30.0], "source": "slm"}, "raw": "{\"mode\": \"swarm\", \"formation\": \"line\", \"uav_ids\": [1, 2, 3], \"target\": [-100.0, 100.0, 30.0]}"}
+{"t": 1792648798.281, "event": "primitive", "nl": "编队前往坐标(-100,100)执行侦察，高度30", "phase": "ASSEMBLE@(0,0)", "slm_latency_ms": 835.5, "source": "mission_commander", "mode": "swarm", "uav_ids": [1, 2, 3], "type": "LEADER_TARGET", "target": [-100.0, 100.0], "alt_note": 30.0}
+{"t": 1792648818.766, "event": "primitive", "type": "HOLD", "source": "phase", "phase": "HOLD@(0,0,5)"}
+{"t": 1792648841.615, "event": "nl_input", "text": "编队继续前往坐标(-100,100)侦察，高度30"}
+{"t": 1792648842.37, "event": "slm_raw", "prompt_phase": "RECON@(-100,100)", "raw": "{\"mode\": \"swarm\", \"formation\": \"line\", \"uav_ids\": [1, 2, 3], \"target\": [-100.0, 100.0, 30.0]}", "latency_ms": 753.7}
+{"t": 1792648842.371, "event": "safety", "accepted": true, "reason": "ok", "action": {"mode": "swarm", "formation": "line", "uav_ids": [1, 2, 3], "target": [-100.0, 100.0, 30.0], "source": "slm"}, "raw": "{\"mode\": \"swarm\", \"formation\": \"line\", \"uav_ids\": [1, 2, 3], \"target\": [-100.0, 100.0, 30.0]}"}
+{"t": 1792648842.372, "event": "primitive", "nl": "编队继续前往坐标(-100,100)侦察，高度30", "phase": "RECON@(-100,100)", "slm_latency_ms": 753.7, "source": "mission_commander", "mode": "swarm", "uav_ids": [1, 2, 3], "type": "LEADER_TARGET", "target": [-100.0, 100.0], "alt_note": 30.0}
+{"t": 1792649071.483, "event": "node_start", "base_url": "http://172.21.112.1:8080/v1", "model": "phi2-phased-v5-q5_k_m.gguf"}
+{"t": 1792649074.604, "event": "primitive", "type": "HOLD", "source": "phase", "phase": "HOLD@(0,0,5)"}
+{"t": 1792649206.311, "event": "nl_input", "text": "编队前往坐标(-100,100)执行侦察，高度30"}
+{"t": 1792649207.097, "event": "slm_raw", "prompt_phase": "ASSEMBLE@(0,0)", "raw": "{\"mode\": \"swarm\", \"formation\": \"line\", \"uav_ids\": [1, 2, 3], \"target\": [-100.0, 100.0, 30.0]}", "latency_ms": 783.9}
+{"t": 1792649207.098, "event": "safety", "accepted": true, "reason": "ok", "action": {"mode": "swarm", "formation": "line", "uav_ids": [1, 2, 3], "target": [-100.0, 100.0, 30.0], "source": "slm"}, "raw": "{\"mode\": \"swarm\", \"formation\": \"line\", \"uav_ids\": [1, 2, 3], \"target\": [-100.0, 100.0, 30.0]}"}
+{"t": 1792649207.099, "event": "primitive", "nl": "编队前往坐标(-100,100)执行侦察，高度30", "phase": "ASSEMBLE@(0,0)", "slm_latency_ms": 783.9, "source": "mission_commander", "mode": "swarm", "uav_ids": [1, 2, 3], "type": "LEADER_TARGET", "target": [-100.0, 100.0], "alt_note": 30.0}
+{"t": 1792649215.953, "event": "primitive", "type": "HOLD", "source": "phase", "phase": "HOLD@(0,0,5)"}
+{"t": 1792649228.068, "event": "nl_input", "text": "编队继续前往坐标(-100,100)侦察，高度30"}
+{"t": 1792649228.881, "event": "slm_raw", "prompt_phase": "RECON@(-100,100)", "raw": "{\"mode\": \"swarm\", \"formation\": \"line\", \"uav_ids\": [1, 2, 3], \"target\": [-100.0, 100.0, 30.0]}", "latency_ms": 810.7}
+{"t": 1792649228.882, "event": "safety", "accepted": true, "reason": "ok", "action": {"mode": "swarm", "formation": "line", "uav_ids": [1, 2, 3], "target": [-100.0, 100.0, 30.0], "source": "slm"}, "raw": "{\"mode\": \"swarm\", \"formation\": \"line\", \"uav_ids\": [1, 2, 3], \"target\": [-100.0, 100.0, 30.0]}"}
+{"t": 1792649228.883, "event": "primitive", "nl": "编队继续前往坐标(-100,100)侦察，高度30", "phase": "RECON@(-100,100)", "slm_latency_ms": 810.7, "source": "mission_commander", "mode": "swarm", "uav_ids": [1, 2, 3], "type": "LEADER_TARGET", "target": [-100.0, 100.0], "alt_note": 30.0}
