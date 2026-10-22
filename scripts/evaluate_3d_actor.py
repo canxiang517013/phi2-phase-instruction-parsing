@@ -36,10 +36,11 @@ def load_module():
 def evaluate(module, checkpoint, episodes, leader_z, leader_target_z, max_alt):
     cfg = dict(module.BASE_CFG)
     cfg["episodes"] = episodes
-    cfg["episode_len"] = 500
+    cfg["episode_len"] = int(cfg.get("episode_len", 600))
     cfg["leader_start"] = [0.0, 0.0, leader_z]
     cfg["leader_target"] = [200.0, 200.0, leader_target_z]
     cfg["max_altitude"] = max_alt
+    cfg["curriculum_static_episodes"] = 0
     cfg["device"] = "cpu"
     env = module.MovingLeaderFormationEnv3D(cfg)
     actor = module.SquashedGaussianActor(obs_dim=20).to("cpu")
@@ -55,7 +56,7 @@ def evaluate(module, checkpoint, episodes, leader_z, leader_target_z, max_alt):
             goal_step = None
             post = {"err": [], "speed": [], "leader_speed": [], "projection": [],
                     "action": []}
-            for t in range(1, 501):
+            for t in range(1, int(cfg["episode_len"]) + 1):
                 obs_t = torch.tensor(obs, dtype=torch.float32)
                 action = torch.tanh(actor.net(obs_t)).numpy().astype(np.float32)
                 obs, _, terminated, truncated, info = env.step(action)
