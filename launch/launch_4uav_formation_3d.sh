@@ -59,6 +59,8 @@ ros2 run uav_adversarial mappo_formation --ros-args \
     -p 'start_east:=[100.0,-100.0,-100.0,100.0]' \
     -p 'start_north:=[100.0,100.0,-100.0,-100.0]' \
     -p altitude:=10.0 \
+    -p episode_ticks:=900 \
+    -p leader_force_move_step:=850 \
     -p log_file:=$LOG_JSONL \
     2>&1 | tee /tmp/mappo_3d_stdout.log
 

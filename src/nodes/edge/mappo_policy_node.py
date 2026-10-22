@@ -106,6 +106,10 @@ class MappoFormationNode(Node):
         # 策略 tick 上限。默认 500 与 env episode_len 一致（基准测试语义）；
         # P0-4 任务演示用 1500（150s），容纳 NL 指令时间线。
         self.declare_parameter('episode_ticks', 0)
+        # 3D 部署：leader 强制起步的步数。训练课程末段是 150（15s，训练里
+        # 1s 就能完成集结）；平台速度环慢一个量级，首飞实测 15s 内完不成，
+        # 部署时用 launch 参数放宽。默认 -1 表示沿用 cfg（150）。
+        self.declare_parameter('leader_force_move_step', -1)
         # 策略维度：2=水平面 14->2（Step 1/2）；3=四面体 20->3（Step 3）
         self.declare_parameter('policy_dim', 2)
         self.declare_parameter('log_file', '/tmp/mappo_formation.jsonl')
@@ -149,6 +153,11 @@ class MappoFormationNode(Node):
             self.cfg['formation_name'] = self._formation_param
         self.cfg['n_agents'] = self.n
         self.dim = self.policy_dim
+        force_param = int(self.get_parameter('leader_force_move_step').value)
+        if force_param < 0:
+            self.force_move_step = int(self.cfg.get('forced_move_step', 150))
+        else:
+            self.force_move_step = force_param
         ticks_override = int(self.get_parameter('episode_ticks').value)
         if ticks_override > 0:
             self.cfg['episode_len'] = ticks_override
@@ -192,6 +201,7 @@ class MappoFormationNode(Node):
         self.link = P04Link(self.get_logger().info)
         self.hold_requested = False
         self.link_logged_degraded = False
+        self._alt_warned = set()
         self.create_subscription(
             Header, str(self.get_parameter('phase_topic').value),
             self._on_phase_signal, 10)
@@ -560,6 +570,22 @@ class MappoFormationNode(Node):
             self._send_cmd(drone, np.zeros(2, dtype=np.float32),
                            self._altitude_vz(-drone['pos_ned'][2]))
 
+    def _vertical_floor_guard(self, up, cmd):
+        """复刻训练环境的高度裁剪语义（min_altitude=2 m）。
+
+        训练环境在集结期会持续下压、靠位置裁剪托在 2 m；平台没有这层
+        保护，直接执行会触地。此处按 env 语义：接近地板禁止下降，
+        低于地板则给回升指令。"""
+        floor = float(self.cfg['min_altitude'])
+        z = float(cmd[2])
+        if up < floor:
+            z = max(z, min(1.0, 0.8 * (floor + 0.5 - up)))
+        elif up < floor + 0.5 and z < 0.0:
+            z = 0.0
+        out = np.array(cmd, dtype=np.float32).copy()
+        out[2] = z
+        return out
+
     def _send_cmd(self, drone, desired_env, vz_up=0.0):
         """对发送给 PX4 的指令做加速度可行性限幅后写入（2D/3D 通用）。"""
         delta = desired_env - drone['cmd_env']
@@ -639,11 +665,21 @@ class MappoFormationNode(Node):
         for i, d in enumerate(self.drones):
             up = -d['pos_ned'][2]
             if self.dim == 3:
-                in_band = (float(self.cfg['min_altitude']) + 2.0
-                           <= up <= float(self.cfg['max_altitude']) - 2.0)
-            else:
-                in_band = abs(up - self.altitude) <= 10.0
-            if not in_band:
+                # 训练环境的硬边界是 [2,100]；低位槽位 z≈5.4 m，PX4 瞬态
+                # 下冲 1-2 m 属正常跟踪行为，不能据此中止（2026-10-22 首飞
+                # 实测：3.85 m 误触发）。只有真正危险的高度才中止。
+                if up < 1.0 or up > 105.0:
+                    self._emit('abort', reason='altitude_unsafe', drone=i, up=up)
+                    self._summarize_episode(leader_reached=False)
+                    self._set_phase(PH_HOVER)
+                    return
+                if (up < float(self.cfg['min_altitude'])
+                        or up > float(self.cfg['max_altitude'])):
+                    if i not in self._alt_warned:
+                        self._alt_warned.add(i)
+                        self._emit('warn', data='outside env altitude bounds',
+                                   drone=i, up=up)
+            elif abs(up - self.altitude) > 10.0:
                 self._emit('abort', reason='altitude_out_of_band', drone=i, up=up)
                 self._summarize_episode(leader_reached=False)
                 self._set_phase(PH_HOVER)
@@ -671,9 +707,10 @@ class MappoFormationNode(Node):
         following_active = bool(self.tracker.complete)
         released = self.leader_released
         if self.dim == 3:
-            # 课程末段语义：编队完成或 t>=forced_move_step 均放行 leader
-            moving_allowed = (released
-                              or self.ep_t >= int(self.cfg['forced_move_step']))
+            # 课程末段语义：编队完成或 t>=force 均放行 leader。部署时 force
+            # 可放宽（平台集结比训练慢一个量级），但以 tracker.complete 为主。
+            moving_allowed = (self.tracker.complete
+                              or self.ep_t >= self.force_move_step)
             self.leader.moving = moving_allowed and not self.hold_requested
         else:
             self.leader.moving = released and not self.hold_requested
@@ -705,6 +742,8 @@ class MappoFormationNode(Node):
                     speed = float(np.linalg.norm(desired))
                     if speed > self.assemble_cap > 0.0:
                         desired = desired / speed * self.assemble_cap
+            if self.dim == 3:
+                desired = self._vertical_floor_guard(float(ups[i]), desired)
             self._send_cmd(d, desired, 0.0 if self.dim == 3
                            else self._altitude_vz(float(ups[i])))
 
