@@ -32,9 +32,12 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 import os as _os
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # 仓库根（src/training 上两级）
 MODEL_PATH = os.path.join(BASE_DIR, "models", "phi-2")     # 本地基座模型
-DATA_PATH = os.path.join(BASE_DIR, "datasets", "dataset_phased_v5.jsonl")  # v5 主力（版本对照 datasets/README.md）
-OUTPUT_DIR = os.path.join(BASE_DIR, "runs", "train_v5")    # 训练日志/checkpoint（gitignore）
-ADAPTER_DIR = os.path.join(BASE_DIR, "adapters", "dmpc_v5")  # 最终 LoRA 权重（入库）
+# 可用环境变量切换数据集与版本（如 v6.3/v7 训练）：
+#   PHI2_DATA=dataset_v6_3.jsonl PHI2_VER=v6_3 python src/training/train_qlora.py
+DATA_PATH = os.path.join(BASE_DIR, "datasets", _os.environ.get("PHI2_DATA", "dataset_phased_v5.jsonl"))
+_VER = _os.environ.get("PHI2_VER", "v5")
+OUTPUT_DIR = os.path.join(BASE_DIR, "runs", "train_" + _VER)   # 训练日志/checkpoint（gitignore）
+ADAPTER_DIR = os.path.join(BASE_DIR, "adapters", "dmpc_" + _VER)  # 最终 LoRA 权重（入库）
 PEAK_VRAM_FILE = os.path.join(OUTPUT_DIR, "train_peak_vram.txt")
 
 # 冒烟模式：PHI2_SMOKE=40 python src/training/train_qlora.py
@@ -42,7 +45,7 @@ PEAK_VRAM_FILE = os.path.join(OUTPUT_DIR, "train_peak_vram.txt")
 SMOKE_STEPS = int(_os.environ.get("PHI2_SMOKE", "0"))
 if SMOKE_STEPS:
     OUTPUT_DIR = os.path.join(BASE_DIR, "runs", "smoke")
-    ADAPTER_DIR = os.path.join(BASE_DIR, "adapters", "dmpc_v5_smoke")
+    ADAPTER_DIR = os.path.join(BASE_DIR, "adapters", "dmpc_%s_smoke" % _VER)
     PEAK_VRAM_FILE = os.path.join(OUTPUT_DIR, "train_peak_vram.txt")
 
 
