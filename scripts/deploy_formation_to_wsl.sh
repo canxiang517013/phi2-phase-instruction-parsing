@@ -18,6 +18,8 @@ cp "$REPO/src/nodes/edge/mission_commander_node.py" "$EDGE_DIR/"
 echo "[2/4] 复制 npz 权重..."
 mkdir -p "$MODEL_DIR"
 cp "$REPO/assets/mappo_2d_seed555_actor.npz" "$MODEL_DIR/"
+cp "$REPO/assets/mappo_3d_seed21_actor_best.npz" "$MODEL_DIR/"
+cp "$REPO/assets/mappo_3d_pa_seed21_actor_best.npz" "$MODEL_DIR/"
 
 echo "[3/4] 注册入口点（幂等）..."
 python3 - <<'PYEOF'

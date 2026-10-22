@@ -44,12 +44,114 @@ BRIDGE_CFG: Dict[str, float] = dict(
     near_target_floor=0.1,
 )
 
+# 3D 编队（四面体）部署配置，逐项对齐优化版 experiment_core_3d.BASE_CFG：
+# leader 起点/终点带高度、水平 15 / 垂直 8 m/s 分轴限幅、高度 2-100 m、
+# 编队阈值 25 m、episode 600 步、课程末段 leader 10 m/s 且 t>=150 强制起步。
+BRIDGE_CFG_3D: Dict[str, float] = dict(
+    n_agents=4,
+    dt=0.1,
+    max_speed=15.0,
+    max_vertical_speed=8.0,
+    min_altitude=2.0,
+    max_altitude=100.0,
+    act_scale=15.0,
+    formation_radius=60.0,
+    formation_threshold=25.0,
+    formation_stable_steps=5,
+    leader_start=(0.0, 0.0, 40.0),
+    leader_target=(200.0, 200.0, 45.0),
+    leader_speed=10.0,
+    leader_acceleration=2.0,
+    follow_error_threshold=30.0,
+    follow_retention_threshold=0.80,
+    terminal_follow_error_threshold=30.0,
+    episode_len=600,
+    leader_goal_radius=5.0,
+    near_target_radius=10.0,
+    near_target_floor=0.1,
+    forced_move_step=150,
+)
+
+# 与 experiment_core_3d.TETRAHEDRON_OFFSETS 完全一致；agent->顶点顺序
+# 由 formation_offset_order=[0,2,3,1] 决定（就近重排，训练优化的一部分）。
+TETRAHEDRON_OFFSETS_3D = np.array(
+    [[1.0, 1.0, 1.0],
+     [1.0, -1.0, -1.0],
+     [-1.0, 1.0, -1.0],
+     [-1.0, -1.0, 1.0]],
+    dtype=np.float32,
+) / np.sqrt(3.0)
+
+FORMATION_ORDER_3D = (0, 2, 3, 1)
+
+
+def formation_offsets_3d(radius: float, order=FORMATION_ORDER_3D) -> np.ndarray:
+    """(n,3) 单位化四面体顶点 × 半径，按训练时的就近顺序重排。"""
+    if sorted(int(x) for x in order) != [0, 1, 2, 3]:
+        raise ValueError('formation offset order 必须是 0..3 的排列')
+    return (TETRAHEDRON_OFFSETS_3D[list(order)] * float(radius)).astype(np.float32)
+
+
+def compute_targets_3d(leader_pos: np.ndarray, offsets: np.ndarray) -> np.ndarray:
+    return (np.asarray(leader_pos, dtype=np.float32)[None, :]
+            + np.asarray(offsets, dtype=np.float32)).astype(np.float32)
+
+
+def build_obs_3d(
+    pos: np.ndarray,
+    vel: np.ndarray,
+    targets: np.ndarray,
+    leader_pos: np.ndarray,
+    leader_vel: np.ndarray,
+    formation_phase: bool,
+    formation_complete: bool,
+) -> np.ndarray:
+    """(n,20) 观测，字段顺序与 experiment_core_3d.obs() 完全一致。"""
+    n = pos.shape[0]
+    rows = []
+    for i in range(n):
+        rows.append(np.concatenate([
+            pos[i],
+            vel[i],
+            targets[i] - pos[i],
+            targets[i],
+            [float(formation_phase)],
+            [float(formation_complete)],
+            np.asarray(leader_pos, dtype=np.float32) - pos[i],
+            np.asarray(leader_vel, dtype=np.float32),
+        ]))
+    return np.asarray(rows, dtype=np.float32)
+
+
+def velocity_command_3d(
+    v_actual: np.ndarray,
+    action: np.ndarray,
+    near_scale: np.ndarray,
+    cfg=None,
+) -> np.ndarray:
+    """v_cmd = v + a*act_scale*dt*near_scale；水平范数 ≤ max_speed、垂直 ±max_vertical_speed。
+
+    与 experiment_core_3d.step() 的分轴限幅逐条一致。
+    """
+    cfg = cfg or BRIDGE_CFG_3D
+    v_cmd = v_actual + action * float(cfg["act_scale"]) * float(cfg["dt"]) * near_scale
+    v_cmd = np.asarray(v_cmd, dtype=np.float32).copy()
+    h_speed = np.linalg.norm(v_cmd[:, :2], axis=1, keepdims=True)
+    safe_h = np.maximum(h_speed, 1e-8)
+    limit = float(cfg["max_speed"])
+    factor = np.minimum(1.0, limit / safe_h)
+    v_cmd[:, :2] = v_cmd[:, :2] * factor
+    v_max = float(cfg["max_vertical_speed"])
+    v_cmd[:, 2] = np.clip(v_cmd[:, 2], -v_max, v_max)
+    return v_cmd
+
 
 class NumpyActor:
     """torch SquashedGaussianActor 的 numpy 等价实现（确定性前向）。
 
     权重来自 export_actor_npz.py 导出的 npz：w1/b1, w2/b2, w3/b3。
     确定性动作 = tanh(net(obs))，与 evaluate_saved_actor 的用法一致。
+    维度无关：2D 网络 (14->2) 与 3D 网络 (20->3) 用同一个类。
     """
 
     def __init__(self, w1, b1, w2, b2, w3, b3):
@@ -199,31 +301,58 @@ def pairwise_metrics(pos: np.ndarray, radius: float, collision_distance: float =
     return per_agent_mean, global_mean, collisions
 
 
+def pairwise_metrics_3d(pos: np.ndarray, offsets: np.ndarray,
+                        collision_distance: float = 10.0):
+    """3D 版期望间距：desired = ||offset_i - offset_j||（offsets 已含半径），
+    与 experiment_core_3d.pairwise_metrics 一致。"""
+    n = pos.shape[0]
+    per_agent = [[] for _ in range(n)]
+    collisions = np.zeros(n, dtype=np.float32)
+    all_errors = []
+    for i in range(n):
+        for j in range(i + 1, n):
+            actual = float(np.linalg.norm(pos[i] - pos[j]))
+            desired = float(np.linalg.norm(offsets[i] - offsets[j]))
+            err = abs(actual - desired)
+            all_errors.append(err)
+            per_agent[i].append(err)
+            per_agent[j].append(err)
+            if actual < collision_distance:
+                collisions[i] += 1.0
+                collisions[j] += 1.0
+    per_agent_mean = np.array(
+        [np.mean(x) if x else 0.0 for x in per_agent], dtype=np.float32
+    )
+    global_mean = float(np.mean(all_errors)) if all_errors else 0.0
+    return per_agent_mean, global_mean, collisions
+
+
 class VirtualLeader:
     """虚拟 leader，逐步复刻 env.update_leader() 的运动学。
 
-    moving 由外部 FormationTracker 的 complete 标志驱动（env 里 leader
-    只在 formation_complete 后运动；complete 是单向的）。
+    维度由 cfg['leader_start'] 决定（2D 或 3D 通用）；moving 由外部
+    FormationTracker / 课程强制步数驱动。
     """
 
     def __init__(self, cfg=None):
         cfg = cfg or BRIDGE_CFG
         self.cfg = cfg
         self.pos = np.asarray(cfg["leader_start"], dtype=np.float32).copy()
-        self.vel = np.zeros(2, dtype=np.float32)
+        self.dim = int(self.pos.shape[0])
+        self.vel = np.zeros(self.dim, dtype=np.float32)
         self.target = np.asarray(cfg["leader_target"], dtype=np.float32)
         self.moving = False
 
     def step(self) -> None:
         if not self.moving:
-            self.vel = np.zeros(2, dtype=np.float32)
+            self.vel = np.zeros(self.dim, dtype=np.float32)
             return
         dt = float(self.cfg["dt"])
         direction = self.target - self.pos
         distance = float(np.linalg.norm(direction))
         if distance <= 1e-8:
             self.pos = self.target.copy()
-            self.vel = np.zeros(2, dtype=np.float32)
+            self.vel = np.zeros(self.dim, dtype=np.float32)
             return
         desired_speed = min(float(self.cfg["leader_speed"]), distance / dt)
         desired_velocity = direction / distance * desired_speed
@@ -236,7 +365,7 @@ class VirtualLeader:
         next_pos = self.pos + self.vel * dt
         if float(np.dot(direction, self.target - next_pos)) <= 0.0:
             self.pos = self.target.copy()
-            self.vel = np.zeros(2, dtype=np.float32)
+            self.vel = np.zeros(self.dim, dtype=np.float32)
         else:
             self.pos = next_pos.astype(np.float32)
 

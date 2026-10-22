@@ -106,6 +106,8 @@ class MappoFormationNode(Node):
         # 策略 tick 上限。默认 500 与 env episode_len 一致（基准测试语义）；
         # P0-4 任务演示用 1500（150s），容纳 NL 指令时间线。
         self.declare_parameter('episode_ticks', 0)
+        # 策略维度：2=水平面 14->2（Step 1/2）；3=四面体 20->3（Step 3）
+        self.declare_parameter('policy_dim', 2)
         self.declare_parameter('log_file', '/tmp/mappo_formation.jsonl')
 
         self.actor_npz = str(self.get_parameter('actor_npz').value)
@@ -125,15 +127,28 @@ class MappoFormationNode(Node):
         self.release_error = float(self.get_parameter('leader_release_error').value)
         self.release_steps = int(self.get_parameter('leader_release_steps').value)
         self.require_link = bool(self.get_parameter('require_phase_link').value)
+        self.policy_dim = int(self.get_parameter('policy_dim').value)
+        if self.policy_dim not in (2, 3):
+            raise ValueError('policy_dim 必须是 2 或 3')
         self._formation_param = str(self.get_parameter('formation').value)
-        if self._formation_param not in bm.SUPPORTED_FORMATIONS:
+        if self.policy_dim == 2 and self._formation_param not in bm.SUPPORTED_FORMATIONS:
             raise ValueError('formation 必须是 %s' % (bm.SUPPORTED_FORMATIONS,))
         self.log_path = Path(str(self.get_parameter('log_file').value))
 
         self.actor = bm.NumpyActor.from_npz(self.actor_npz)
-        self.cfg = dict(bm.BRIDGE_CFG)
+        if self.actor.action_dim != self.policy_dim:
+            raise ValueError(
+                'actor 输出 %d 维与 policy_dim=%d 不符'
+                % (self.actor.action_dim, self.policy_dim))
+        if self.policy_dim == 3:
+            self.cfg = dict(bm.BRIDGE_CFG_3D)
+            self._offsets_3d = bm.formation_offsets_3d(
+                float(self.cfg['formation_radius']))
+        else:
+            self.cfg = dict(bm.BRIDGE_CFG)
+            self.cfg['formation_name'] = self._formation_param
         self.cfg['n_agents'] = self.n
-        self.cfg['formation_name'] = self._formation_param
+        self.dim = self.policy_dim
         ticks_override = int(self.get_parameter('episode_ticks').value)
         if ticks_override > 0:
             self.cfg['episode_len'] = ticks_override
@@ -152,7 +167,7 @@ class MappoFormationNode(Node):
                 'pos_stamp': 0.0, 'status_stamp': 0.0,
                 'armed': False, 'offboard': False, 'landed': False,
                 'home_ned': None,
-                'cmd_env': np.zeros(2, dtype=np.float32),
+                'cmd_env': np.zeros(self.dim, dtype=np.float32),
                 'cmd_vz_up': 0.0,
             }
             drone['ocm_pub'] = self.create_publisher(
@@ -261,9 +276,22 @@ class MappoFormationNode(Node):
                 self._emit('primitive_reject', reason='out-of-envelope',
                            target=[x, y])
                 return
-            self.leader.target = np.array([x, y], dtype=np.float32)
+            if self.dim == 3:
+                # 四面体槽位 z 偏移 ±||offsets_z||；leader 高度必须留在
+                # [min_alt+m, max_alt-m] 内，否则有槽位超出高度包络不可达
+                z_margin = float(np.max(np.abs(self._offsets_3d[:, 2]))) + 0.1
+                try:
+                    z = float(prim.get('alt_note', self.leader.target[2]))
+                except (TypeError, ValueError):
+                    z = float(self.leader.target[2])
+                z = min(max(z, float(self.cfg['min_altitude']) + z_margin),
+                        float(self.cfg['max_altitude']) - z_margin)
+                self.leader.target = np.array([x, y, z], dtype=np.float32)
+            else:
+                self.leader.target = np.array([x, y], dtype=np.float32)
             self.hold_requested = False  # 新任务解除冻结
             self._emit('primitive_applied', type=ptype, target=[x, y],
+                       leader_target=self.leader.target.tolist(),
                        alt_note=prim.get('alt_note'), nl=prim.get('nl'),
                        phase=prim.get('phase'),
                        slm_latency_ms=prim.get('slm_latency_ms'))
@@ -275,6 +303,10 @@ class MappoFormationNode(Node):
             self.hold_requested = False
             self._emit('primitive_applied', type=ptype)
         elif ptype == 'RECONFIGURE':
+            if self.dim == 3:
+                self._emit('primitive_reject', reason='formation-unsupported-in-3d',
+                           formation=prim.get('formation'))
+                return
             formation = str(prim.get('formation', ''))
             if formation not in bm.SUPPORTED_FORMATIONS:
                 self._emit('primitive_reject', reason='formation-unsupported',
@@ -286,16 +318,21 @@ class MappoFormationNode(Node):
             self._emit('primitive_reject', reason='unknown-type', prim=prim)
 
     def _world_pos(self, i):
-        """第 i 架机的 env 平面坐标 (x=east, y=north) 与高度。"""
+        """第 i 架机的 env 坐标（2D: (east,north)；3D: (east,north,up)）与高度。"""
         d = self.drones[i]
         east = d['pos_ned'][1] + self.spawn_east[i]
         north = d['pos_ned'][0] + self.spawn_north[i]
         up = -d['pos_ned'][2]
+        if self.dim == 3:
+            return np.array([east, north, up], dtype=np.float32), up
         return np.array([east, north], dtype=np.float32), up
 
     def _world_vel(self, i):
         d = self.drones[i]
-        return np.array([d['vel_ned'][1], d['vel_ned'][0]], dtype=np.float32)
+        vel = [d['vel_ned'][1], d['vel_ned'][0]]
+        if self.dim == 3:
+            vel.append(-d['vel_ned'][2])
+        return np.array(vel, dtype=np.float32)
 
     # ------------------------------------------------------------------
     # PX4 指令
@@ -322,13 +359,18 @@ class MappoFormationNode(Node):
         msg.yawspeed = nan
         drone['ts_pub'].publish(msg)
 
-    def _publish_velocity_sp(self, drone, v_env, vz_up):
+    def _publish_velocity_sp(self, drone):
         nan = float('nan')
         msg = TrajectorySetpoint()
         msg.timestamp = self._now_us()
         msg.position = [nan, nan, nan]
-        # env (x=east, y=north) -> NED (北, 东, 下)
-        msg.velocity = [float(v_env[1]), float(v_env[0]), -float(vz_up)]
+        cmd = drone['cmd_env']
+        # env (east, north[, up]) -> NED (北, 东, 下)
+        if self.dim == 3:
+            vel_ned = [float(cmd[1]), float(cmd[0]), -float(cmd[2])]
+        else:
+            vel_ned = [float(cmd[1]), float(cmd[0]), -float(drone['cmd_vz_up'])]
+        msg.velocity = vel_ned
         msg.acceleration = [nan, nan, nan]
         msg.jerk = [nan, nan, nan]
         msg.yaw = nan
@@ -458,14 +500,13 @@ class MappoFormationNode(Node):
         if self.phase == PH_FORMATION:
             for d in self.drones:
                 self._publish_mode(d, velocity_mode=True)
-                self._publish_velocity_sp(d, d['cmd_env'], d['cmd_vz_up'])
+                self._publish_velocity_sp(d)
             return
 
         if self.phase == PH_HOVER:
             for d in self.drones:
                 self._publish_mode(d, velocity_mode=True)
-                vz = self._altitude_vz(-d['pos_ned'][2])
-                self._publish_velocity_sp(d, np.zeros(2, dtype=np.float32), vz)
+                self._hover_cmd(d)
             if now - self.phase_t0 > 3.0:
                 self.land_cmd_sent = False
                 self._set_phase(PH_LAND)
@@ -511,8 +552,16 @@ class MappoFormationNode(Node):
             return 0.0
         return float(np.clip(kp * err, -1.5, 1.5))
 
-    def _send_cmd(self, drone, desired_env, vz_up):
-        """对发送给 PX4 的水平指令做加速度可行性限幅后写入。"""
+    def _hover_cmd(self, drone):
+        """安全悬停指令：2D 用定高 P 控制；3D 垂直速度置零（保持当前高度）。"""
+        if self.dim == 3:
+            self._send_cmd(drone, np.zeros(3, dtype=np.float32), 0.0)
+        else:
+            self._send_cmd(drone, np.zeros(2, dtype=np.float32),
+                           self._altitude_vz(-drone['pos_ned'][2]))
+
+    def _send_cmd(self, drone, desired_env, vz_up=0.0):
+        """对发送给 PX4 的指令做加速度可行性限幅后写入（2D/3D 通用）。"""
         delta = desired_env - drone['cmd_env']
         norm = float(np.linalg.norm(delta))
         if norm > self.max_cmd_delta:
@@ -544,8 +593,8 @@ class MappoFormationNode(Node):
         self.episode_summarized = False
         self.ep_t0 = time.time()
         for d in self.drones:
-            d['cmd_env'] = np.zeros(2, dtype=np.float32)
-            d['cmd_vz_up'] = self._altitude_vz(-d['pos_ned'][2])
+            d['cmd_env'] = np.zeros(self.dim, dtype=np.float32)
+            d['cmd_vz_up'] = 0.0
         self._emit('config', cfg={k: list(v) if isinstance(v, tuple) else v
                                   for k, v in self.cfg.items()},
                    start_east=self.start_east, start_north=self.start_north,
@@ -570,8 +619,7 @@ class MappoFormationNode(Node):
                 self.stale_logged = True
                 self._emit('warn', data='position stale, policy frozen, hovering')
             for d in self.drones:
-                self._send_cmd(d, np.zeros(2, dtype=np.float32),
-                               self._altitude_vz(-d['pos_ned'][2]))
+                self._hover_cmd(d)
             return
         self.stale_logged = False
 
@@ -582,8 +630,7 @@ class MappoFormationNode(Node):
                 self._emit('link_degraded',
                            action='freeze leader + hover (phase-independent)')
             for d in self.drones:
-                self._send_cmd(d, np.zeros(2, dtype=np.float32),
-                               self._altitude_vz(-d['pos_ned'][2]))
+                self._hover_cmd(d)
             return
         if self.link_logged_degraded:
             self.link_logged_degraded = False
@@ -591,7 +638,12 @@ class MappoFormationNode(Node):
 
         for i, d in enumerate(self.drones):
             up = -d['pos_ned'][2]
-            if abs(up - self.altitude) > 10.0:
+            if self.dim == 3:
+                in_band = (float(self.cfg['min_altitude']) + 2.0
+                           <= up <= float(self.cfg['max_altitude']) - 2.0)
+            else:
+                in_band = abs(up - self.altitude) <= 10.0
+            if not in_band:
                 self._emit('abort', reason='altitude_out_of_band', drone=i, up=up)
                 self._summarize_episode(leader_reached=False)
                 self._set_phase(PH_HOVER)
@@ -602,33 +654,59 @@ class MappoFormationNode(Node):
         ups = np.array([-self.drones[i]['pos_ned'][2] for i in range(self.n)])
 
         # 与 env 的采样语义一致：obs 用上一 tick 末的 leader/标志
-        targets_old = bm.compute_targets(
-            self.leader.pos, self.cfg['formation_radius'], self.n,
-            self.cfg['formation_name'])
-        obs = bm.build_obs(pos, vel, targets_old, self.leader.pos, self.leader.vel,
-                           self.tracker.phase_flag, self.tracker.complete)
+        if self.dim == 3:
+            targets_old = bm.compute_targets_3d(self.leader.pos, self._offsets_3d)
+            obs = bm.build_obs_3d(pos, vel, targets_old, self.leader.pos,
+                                  self.leader.vel, self.tracker.phase_flag,
+                                  self.tracker.complete)
+        else:
+            targets_old = bm.compute_targets(
+                self.leader.pos, self.cfg['formation_radius'], self.n,
+                self.cfg['formation_name'])
+            obs = bm.build_obs(pos, vel, targets_old, self.leader.pos,
+                               self.leader.vel, self.tracker.phase_flag,
+                               self.tracker.complete)
         action = self.actor.act(obs)
 
         following_active = bool(self.tracker.complete)
         released = self.leader_released
-        self.leader.moving = released and not self.hold_requested
+        if self.dim == 3:
+            # 课程末段语义：编队完成或 t>=forced_move_step 均放行 leader
+            moving_allowed = (released
+                              or self.ep_t >= int(self.cfg['forced_move_step']))
+            self.leader.moving = moving_allowed and not self.hold_requested
+        else:
+            self.leader.moving = released and not self.hold_requested
         self.leader.step()
-        targets = bm.compute_targets(
-            self.leader.pos, self.cfg['formation_radius'], self.n,
-            self.cfg['formation_name'])
+        if self.dim == 3:
+            targets = bm.compute_targets_3d(self.leader.pos, self._offsets_3d)
+        else:
+            targets = bm.compute_targets(
+                self.leader.pos, self.cfg['formation_radius'], self.n,
+                self.cfg['formation_name'])
 
         errors = np.linalg.norm(pos - targets, axis=1)
         near = np.array([[bm.near_target_scale(float(errors[i]), following_active,
                                                self.cfg)] for i in range(self.n)],
                         dtype=np.float32)
-        v_cmd = bm.velocity_command(vel, action, near, self.cfg)
+        if self.dim == 3:
+            v_cmd = bm.velocity_command_3d(vel, action, near, self.cfg)
+        else:
+            v_cmd = bm.velocity_command(vel, action, near, self.cfg)
         for i, d in enumerate(self.drones):
             desired = v_cmd[i]
             if not released:
-                speed = float(np.linalg.norm(desired))
-                if speed > self.assemble_cap > 0.0:
-                    desired = desired / speed * self.assemble_cap
-            self._send_cmd(d, desired, self._altitude_vz(float(ups[i])))
+                if self.dim == 3:
+                    h = float(np.linalg.norm(desired[:2]))
+                    if h > self.assemble_cap > 0.0:
+                        desired = desired.copy()
+                        desired[:2] = desired[:2] / h * self.assemble_cap
+                else:
+                    speed = float(np.linalg.norm(desired))
+                    if speed > self.assemble_cap > 0.0:
+                        desired = desired / speed * self.assemble_cap
+            self._send_cmd(d, desired, 0.0 if self.dim == 3
+                           else self._altitude_vz(float(ups[i])))
 
         max_err = float(np.max(errors))
         self.tracker.update(max_err)
@@ -644,13 +722,18 @@ class MappoFormationNode(Node):
             self.follow_steps += 1
             self.follow_valid += (errors <= self.cfg['follow_error_threshold']).astype(np.int64)
         self.err_sum += float(np.mean(errors))
-        _, pair_global, _ = bm.pairwise_metrics(
-            pos, self.cfg['formation_radius'], self.cfg.get('collision_distance', 10.0))
+        if self.dim == 3:
+            _, pair_global, _ = bm.pairwise_metrics_3d(
+                pos, self._offsets_3d, self.cfg.get('collision_distance', 10.0))
+        else:
+            _, pair_global, _ = bm.pairwise_metrics(
+                pos, self.cfg['formation_radius'],
+                self.cfg.get('collision_distance', 10.0))
         self.pair_sum += pair_global
         self.terminal_max_err = float(np.max(errors))
 
-        self._emit('step', t=self.ep_t, leader=[float(self.leader.pos[0]),
-                                                float(self.leader.pos[1])],
+        leader_key = [float(v) for v in self.leader.pos]
+        self._emit('step', t=self.ep_t, leader=leader_key,
                    drones=[{'i': i, 'pos': pos[i].tolist(), 'vel': vel[i].tolist(),
                             'cmd': v_cmd[i].tolist(), 'err': float(errors[i]),
                             'up': float(ups[i])} for i in range(self.n)],
